@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Alert, Modal } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { ChevronLeft, BookOpen, Target, Eye, Hash, Zap, Languages, Calendar, Clock, Volume2, Vibrate, Shield, Share2, TrendingUp, RefreshCw } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, Target, Eye, Hash, Zap, Languages, Calendar, Clock, Volume2, Vibrate, Shield, Share2, TrendingUp, RefreshCw, Bell, BellRing, Award } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import { useTheme } from '@/contexts/theme-context';
 import { useSettings } from '@/contexts/settings-context';
 
@@ -10,6 +11,66 @@ export default function AppSettingsScreen() {
   const { colors } = useTheme();
   const { settings, updateSettings, resetSettings } = useSettings();
   const [showResetModal, setShowResetModal] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+
+  useEffect(() => {
+    checkNotificationPermission();
+  }, []);
+
+  const checkNotificationPermission = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    setPermissionGranted(status === 'granted');
+    console.log('Notification permission status:', status);
+  };
+
+  const requestNotificationPermission = async () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    const { status } = await Notifications.requestPermissionsAsync();
+    setPermissionGranted(status === 'granted');
+    
+    if (status === 'granted') {
+      updateSettings({
+        notifications: {
+          ...settings.notifications,
+          enabled: true,
+        },
+      });
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      Alert.alert('Success', 'Notifications enabled successfully!');
+    } else {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications in your device settings to receive reading reminders.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Notifications.openSettingsAsync() },
+        ]
+      );
+    }
+  };
+
+  const handleToggleNotifications = async (value: boolean) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    if (value && !permissionGranted) {
+      await requestNotificationPermission();
+      return;
+    }
+
+    updateSettings({
+      notifications: {
+        ...settings.notifications,
+        enabled: value,
+      },
+    });
+  };
 
   const handleToggle = (category: keyof typeof settings, key: string, value: boolean | string | number) => {
     if (Platform.OS !== 'web') {
@@ -90,6 +151,121 @@ export default function AppSettingsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+
+          <View style={[styles.settingCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.settingContent}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.primary + '15' }]}>
+                <Bell size={22} color={colors.primary} strokeWidth={2.5} />
+              </View>
+              <View style={styles.settingTextFull}>
+                <Text style={[styles.settingTitle, { color: colors.text }]}>Enable Notifications</Text>
+                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                  {permissionGranted 
+                    ? 'Notifications are allowed' 
+                    : 'Grant permission to receive reminders'}
+                </Text>
+              </View>
+              <Switch
+                value={settings.notifications.enabled}
+                onValueChange={handleToggleNotifications}
+                trackColor={{ false: colors.border, true: colors.primary + '50' }}
+                thumbColor={settings.notifications.enabled ? colors.primary : colors.textTertiary}
+                ios_backgroundColor={colors.border}
+              />
+            </View>
+          </View>
+
+          {settings.notifications.enabled && (
+            <>
+              <View style={[styles.settingCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.settingContent}>
+                  <View style={[styles.settingIcon, { backgroundColor: colors.primary + '15' }]}>
+                    <BellRing size={22} color={colors.primary} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.settingTextFull}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>Reading Reminders</Text>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                      Get reminded to read daily
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.notifications.readingReminders}
+                    onValueChange={(value) => handleToggle('notifications', 'readingReminders', value)}
+                    trackColor={{ false: colors.border, true: colors.primary + '50' }}
+                    thumbColor={settings.notifications.readingReminders ? colors.primary : colors.textTertiary}
+                    ios_backgroundColor={colors.border}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.settingCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.settingContent}>
+                  <View style={[styles.settingIcon, { backgroundColor: colors.accent + '15' }]}>
+                    <Target size={22} color={colors.accent} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.settingTextFull}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>Goal Reminders</Text>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                      Stay on track with your reading goals
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.notifications.goalReminders}
+                    onValueChange={(value) => handleToggle('notifications', 'goalReminders', value)}
+                    trackColor={{ false: colors.border, true: colors.primary + '50' }}
+                    thumbColor={settings.notifications.goalReminders ? colors.primary : colors.textTertiary}
+                    ios_backgroundColor={colors.border}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.settingCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.settingContent}>
+                  <View style={[styles.settingIcon, { backgroundColor: colors.warning + '15' }]}>
+                    <Clock size={22} color={colors.warning} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.settingTextFull}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>Streak Reminders</Text>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                      Don't break your reading streak
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.notifications.streakReminders}
+                    onValueChange={(value) => handleToggle('notifications', 'streakReminders', value)}
+                    trackColor={{ false: colors.border, true: colors.primary + '50' }}
+                    thumbColor={settings.notifications.streakReminders ? colors.primary : colors.textTertiary}
+                    ios_backgroundColor={colors.border}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.settingCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.settingContent}>
+                  <View style={[styles.settingIcon, { backgroundColor: colors.success + '15' }]}>
+                    <Award size={22} color={colors.success} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.settingTextFull}>
+                    <Text style={[styles.settingTitle, { color: colors.text }]}>Achievements</Text>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                      Celebrate your reading milestones
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.notifications.achievements}
+                    onValueChange={(value) => handleToggle('notifications', 'achievements', value)}
+                    trackColor={{ false: colors.border, true: colors.primary + '50' }}
+                    thumbColor={settings.notifications.achievements ? colors.primary : colors.textTertiary}
+                    ios_backgroundColor={colors.border}
+                  />
+                </View>
+              </View>
+            </>
+          )}
+        </View>
+
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Reading Preferences</Text>
 

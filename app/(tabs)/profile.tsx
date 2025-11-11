@@ -19,13 +19,6 @@ export default function ProfileScreen() {
   const [editAge, setEditAge] = useState('');
   const [editGender, setEditGender] = useState<'male' | 'female' | 'other' | 'prefer-not-to-say'>('prefer-not-to-say');
 
-  const handleNavigateToNotifications = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    router.push('/notifications-settings');
-  };
-
   const handleNavigateToSettings = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -192,17 +185,6 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
           
-          <TouchableOpacity
-            style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={handleNavigateToNotifications}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: colors.primary + '15' }]}>
-              <Bell size={20} color={colors.primary} strokeWidth={2.5} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Notifications</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.menuItem, { backgroundColor: colors.surface }]}
             onPress={handleNavigateToSettings}

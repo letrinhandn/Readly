@@ -51,6 +51,7 @@ export default function LoginScreen() {
             data: {
               name: name || 'Reader',
             },
+            emailRedirectTo: undefined,
           },
         });
 
@@ -60,6 +61,7 @@ export default function LoginScreen() {
         }
 
         console.log('Sign up successful:', data.user?.id);
+        console.log('Sign up session:', data.session);
 
         if (data.user) {
           console.log('Creating user profile...');
@@ -73,15 +75,26 @@ export default function LoginScreen() {
 
           if (profileError) {
             console.error('Profile creation error:', profileError);
-            Alert.alert('Error', `Failed to create profile: ${profileError.message || 'Unknown error'}`);
-            throw profileError;
+            if (profileError.code === '23505') {
+              Alert.alert('Notice', 'Profile already exists. You can now sign in.');
+            } else {
+              Alert.alert('Error', `Failed to create profile: ${profileError.message || 'Unknown error'}`);
+            }
           } else {
             console.log('Profile created successfully');
           }
 
-          Alert.alert('Success', 'Account created! You can now sign in.', [
-            { text: 'OK', onPress: () => setIsSignUp(false) },
-          ]);
+          if (data.session) {
+            Alert.alert('Success', 'Account created successfully!', [
+              { text: 'OK', onPress: () => router.replace('/(tabs)') },
+            ]);
+          } else {
+            Alert.alert(
+              'Check Your Email',
+              'Please check your email and click the confirmation link to complete registration. After confirming, come back and sign in.',
+              [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+            );
+          }
         }
       } else {
         console.log('Attempting to sign in...');
@@ -92,6 +105,23 @@ export default function LoginScreen() {
 
         if (error) {
           console.error('Sign in error:', error);
+          if (error.message.includes('Email not confirmed')) {
+            Alert.alert(
+              'Email Not Confirmed',
+              'Please check your email and click the confirmation link before signing in. Check your spam folder if you don\'t see it.',
+              [{ text: 'OK' }]
+            );
+            setLoading(false);
+            return;
+          } else if (error.message.includes('Invalid login credentials')) {
+            Alert.alert(
+              'Invalid Credentials',
+              'The email or password you entered is incorrect. Please try again or sign up for a new account.',
+              [{ text: 'OK' }]
+            );
+            setLoading(false);
+            return;
+          }
           throw error;
         }
 

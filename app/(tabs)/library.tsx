@@ -301,7 +301,7 @@ export default function LibraryScreen() {
                     <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
                       {book.author}
                     </Text>
-                    {book.status === 'reading' && (
+                    {book.status === 'reading' ? (
                       (() => {
                         const percent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
                         return (
@@ -315,7 +315,7 @@ export default function LibraryScreen() {
                           </View>
                         );
                       })()
-                    )}
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -477,13 +477,13 @@ export default function LibraryScreen() {
                                 <View style={styles.modalBookInfo}>
                                   <Text style={[styles.modalBookTitle, { color: colors.text }]} numberOfLines={2}>{book.volumeInfo.title}</Text>
                                   <Text style={[styles.modalBookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{book.volumeInfo.authors?.join(', ') || 'Unknown Author'}</Text>
-                                  {book.volumeInfo.pageCount && (<Text style={[styles.modalBookPages, { color: colors.textTertiary }]}>{book.volumeInfo.pageCount} pages</Text>)}
+                                  {book.volumeInfo.pageCount ? (<Text style={[styles.modalBookPages, { color: colors.textTertiary }]}>{book.volumeInfo.pageCount} pages</Text>) : null}
                                 </View>
                               </TouchableOpacity>
                             ))}
-                            {modalGoogleBooksQuery.data && modalGoogleBooksQuery.data.length === 0 && (
+                            {modalGoogleBooksQuery.data && modalGoogleBooksQuery.data.length === 0 ? (
                               <Text style={[styles.modalNoResults, { color: colors.textSecondary }]}>No books found</Text>
-                            )}
+                            ) : null}
                           </ScrollView>
                         )}
                       </View>

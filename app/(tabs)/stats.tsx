@@ -49,9 +49,9 @@ export default function StatsScreen() {
             </View>
             <Text style={[styles.streakValue, { color: colors.surface }]}>{stats.currentStreak}</Text>
             <Text style={[styles.streakLabel, { color: colors.surface }]}>Day Streak</Text>
-            {stats.longestStreak > stats.currentStreak && (
+            {stats.longestStreak > stats.currentStreak ? (
               <Text style={styles.streakBest}>Best: {stats.longestStreak} days</Text>
-            )}
+            ) : null}
           </View>
         </View>
 

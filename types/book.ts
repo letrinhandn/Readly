@@ -52,6 +52,7 @@ export interface ReadingSession {
   endTime?: string;
   pagesRead: number;
   duration: number;
+  reflection?: string;
 }
 
 export interface ReadingStats {

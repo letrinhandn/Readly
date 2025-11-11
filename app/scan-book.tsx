@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Image } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { X, Camera as CameraIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +9,9 @@ import { useTheme } from '@/contexts/theme-context';
 
 export default function ScanBookScreen() {
   const { colors } = useTheme();
+  const params = useLocalSearchParams() as { returnTo?: string; id?: string };
+  const returnToRaw = params.returnTo;
+  const returnId = params.id;
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedImage, setScannedImage] = useState<string | null>(null);
 
@@ -26,6 +29,12 @@ export default function ScanBookScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setScannedImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      if (returnToRaw) {
+        const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+  router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uri } });
+        return;
+      }
       Alert.alert('Success', 'Book cover captured! Feature coming soon to auto-fill book details.', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -45,6 +54,12 @@ export default function ScanBookScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setScannedImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      if (returnToRaw) {
+        const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+  router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uri } });
+        return;
+      }
       Alert.alert('Success', 'Book cover captured! Feature coming soon to auto-fill book details.', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -59,7 +74,7 @@ export default function ScanBookScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Scan Book Cover</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Add Book Cover</Text>
           <TouchableOpacity
             style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}
             onPress={() => router.back()}
@@ -71,8 +86,8 @@ export default function ScanBookScreen() {
         <View style={styles.permissionContainer}>
           <CameraIcon size={64} color={colors.textTertiary} strokeWidth={1} />
           <Text style={[styles.permissionTitle, { color: colors.text }]}>Camera Permission Required</Text>
-          <Text style={[styles.permissionDesc, { color: colors.textSecondary }]}>
-            We need camera access to scan book covers
+          <Text style={[styles.permissionDesc, { color: colors.textSecondary }]}> 
+            We need camera access to add book covers
           </Text>
           <TouchableOpacity
             style={[styles.permissionButton, { backgroundColor: colors.primary }]}
@@ -89,7 +104,7 @@ export default function ScanBookScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Scan Book Cover</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Add Book Cover</Text>
         <TouchableOpacity
           style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]}
           onPress={() => router.back()}

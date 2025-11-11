@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Modal, Alert } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2 } from 'lucide-react-native';
+import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2, Edit2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -11,7 +11,7 @@ import ShareBookCard from '@/components/ShareBookCard';
 
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { books, sessions, deleteBook } = useReading();
+  const { books, sessions, deleteBook, updateBook } = useReading();
   const { colors } = useTheme();
   const [showShareModal, setShowShareModal] = useState(false);
   const shareCardRef = useRef<View>(null);
@@ -114,7 +114,7 @@ export default function BookDetailScreen() {
     }
   };
 
-  const progress = (book.currentPage / book.totalPages) * 100;
+  const progress = book.totalPages ? (book.currentPage / book.totalPages) * 100 : 0;
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -135,6 +135,13 @@ export default function BookDetailScreen() {
           headerTintColor: colors.text,
           headerRight: () => (
             <View style={styles.headerActions}>
+              <TouchableOpacity onPress={() => {
+                if (book) {
+                  router.push(`/edit-book?id=${book.id}`);
+                }
+              }} style={styles.headerButton}>
+                <Edit2 size={20} color={colors.primary} strokeWidth={2} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleSharePress} style={styles.headerButton}>
                 <Share2 size={20} color={colors.primary} strokeWidth={2} />
               </TouchableOpacity>
@@ -266,30 +273,36 @@ export default function BookDetailScreen() {
               <View key={date} style={[styles.dayGroup, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.dayDate, { color: colors.text }]}>{date}</Text>
                 {daySessions.map((session, index) => (
-                  <View 
-                    key={session.id} 
-                    style={[
-                      styles.sessionCard, 
-                      { backgroundColor: colors.surfaceSecondary },
-                      index === daySessions.length - 1 && styles.sessionCardLast
-                    ]}
-                  >
-                    <View style={styles.sessionHeader}>
-                      <View style={styles.sessionTime}>
-                        <Clock size={16} color={colors.textTertiary} strokeWidth={2} />
-                        <Text style={[styles.sessionTimeText, { color: colors.textSecondary }]}>
-                          {formatTime(session.startTime)}
-                        </Text>
-                      </View>
-                      <View style={[styles.sessionBadge, { backgroundColor: colors.primary + '20' }]}>
-                        <Text style={[styles.sessionBadgeText, { color: colors.primary }]}>
-                          {session.duration} min
-                        </Text>
-                      </View>
+                  <View key={session.id} style={styles.threadItem}>
+                    <View style={styles.threadLeft}>
+                      <View style={[styles.threadDot, { backgroundColor: colors.primary }]} />
+                      {index < daySessions.length - 1 ? (
+                        <View style={[styles.threadLine, { backgroundColor: colors.border }]} />
+                      ) : null}
                     </View>
-                    <Text style={[styles.sessionPages, { color: colors.text }]}>
-                      Read {session.pagesRead} {session.pagesRead === 1 ? 'page' : 'pages'}
-                    </Text>
+
+                    <View style={styles.threadContent}>
+                      <View style={[styles.sessionHeader, { marginBottom: 8 }]}> 
+                        <View style={styles.sessionTime}>
+                          <Clock size={14} color={colors.textTertiary} strokeWidth={2} />
+                          <Text style={[styles.sessionTimeText, { color: colors.textSecondary }]}>{formatTime(session.startTime)}</Text>
+                        </View>
+                        <View style={[styles.sessionBadge, { backgroundColor: colors.primary + '20' }]}>
+                          <Text style={[styles.sessionBadgeText, { color: colors.primary }]}>{session.duration} min</Text>
+                        </View>
+                      </View>
+
+                      <Text style={[styles.sessionPages, { color: colors.text }]}>
+                        Read {session.pagesRead} {session.pagesRead === 1 ? 'page' : 'pages'}
+                      </Text>
+
+                      {session.reflection ? (
+                        <View style={[styles.reflectionBubble, { backgroundColor: colors.surface }]}> 
+                          <Text style={[styles.sessionReflection, { color: colors.text }]}>{session.reflection}</Text>
+                          <Text style={[styles.reflectionMeta, { color: colors.textSecondary }]}>{formatTime(session.startTime)}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 ))}
               </View>
@@ -360,6 +373,8 @@ export default function BookDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      
     </View>
   );
 }
@@ -603,6 +618,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
   },
+  sessionReflection: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reflectionBubble: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+  },
+  reflectionMeta: {
+    marginTop: 8,
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'right',
+  },
+  /* thread styles */
+  threadItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  threadLeft: {
+    width: 36,
+    alignItems: 'center',
+  },
+  threadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  threadLine: {
+    width: 2,
+    flex: 1,
+    marginTop: 6,
+  },
+  threadContent: {
+    flex: 1,
+    paddingLeft: 12,
+  },
   emptyJournal: {
     borderRadius: 20,
     padding: 40,
@@ -648,6 +703,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     fontWeight: '500' as const,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    marginBottom: 6,
+  },
+  input: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    fontSize: 15,
   },
   shareCardContainer: {
     marginBottom: 24,

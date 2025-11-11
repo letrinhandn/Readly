@@ -1,5 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabase from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback } from 'react';
 import { Book, ReadingSession, ReadingStats } from '@/types/book';
@@ -14,22 +15,44 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   const booksQuery = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
-      const stored = await AsyncStorage.getItem(BOOKS_KEY);
-      return stored ? (JSON.parse(stored) as Book[]) : [];
+      try {
+        const { data, error } = await supabase.from('books').select('*');
+        if (error) throw error;
+        if (data && Array.isArray(data)) return (data as Book[]);
+      } catch (e) {
+        // fallback to AsyncStorage
+        const stored = await AsyncStorage.getItem(BOOKS_KEY);
+        return stored ? (JSON.parse(stored) as Book[]) : [];
+      }
+      return [];
     },
   });
 
   const sessionsQuery = useQuery({
     queryKey: ['sessions'],
     queryFn: async () => {
-      const stored = await AsyncStorage.getItem(SESSIONS_KEY);
-      return stored ? (JSON.parse(stored) as ReadingSession[]) : [];
+      try {
+        const { data, error } = await supabase.from('sessions').select('*');
+        if (error) throw error;
+        if (data && Array.isArray(data)) return (data as ReadingSession[]);
+      } catch (e) {
+        const stored = await AsyncStorage.getItem(SESSIONS_KEY);
+        return stored ? (JSON.parse(stored) as ReadingSession[]) : [];
+      }
+      return [];
     },
   });
 
   const saveBooksM = useMutation({
     mutationFn: async (books: Book[]) => {
-      await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+      try {
+        // try upsert to supabase
+        const { error } = await supabase.from('books').upsert(books);
+        if (error) throw error;
+      } catch (e) {
+        // fallback to AsyncStorage
+        await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+      }
       return books;
     },
     onSuccess: () => {
@@ -40,7 +63,12 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
 
   const saveSessionsM = useMutation({
     mutationFn: async (sessions: ReadingSession[]) => {
-      await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      try {
+        const { error } = await supabase.from('sessions').upsert(sessions);
+        if (error) throw error;
+      } catch (e) {
+        await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      }
       return sessions;
     },
     onSuccess: () => {
@@ -82,26 +110,72 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       duration: 0,
     };
     const sessions = sessionsQuery.data ?? [];
-    saveSessions([...sessions, newSession]);
+    const updated = [...sessions, newSession];
+    // update the query cache immediately so other callers (endReadingSession) see the session
+    queryClient.setQueryData(['sessions'], updated);
+    // persist in Supabase (background) with fallback to AsyncStorage
+    saveSessionsM.mutateAsync(updated).catch((e) => {
+      console.error('Failed to save sessions on start:', e);
+    });
     setCurrentSessionId(sessionId);
     return sessionId;
   }, [sessionsQuery.data, saveSessions]);
 
-  const endReadingSession = useCallback((sessionId: string, pagesRead: number) => {
+  const endReadingSession = useCallback(async (sessionId: string, pagesRead: number, reflection?: string, fallbackBookId?: string) => {
     const sessions = sessionsQuery.data ?? [];
     const session = sessions.find((s) => s.id === sessionId);
-    if (!session) return;
 
     const endTime = new Date();
+
+    if (!session) {
+      // fallback: create a minimal session record if we don't have the original (start may not have been persisted)
+      if (!fallbackBookId) {
+        // nothing we can do without a book id
+        return;
+      }
+      const startTime = new Date();
+      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000 / 60);
+      const newSession = {
+        id: sessionId,
+        bookId: fallbackBookId,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        pagesRead,
+        duration,
+        reflection,
+      } as ReadingSession;
+
+    const updatedSessions = [...sessions, newSession];
+    await saveSessionsM.mutateAsync(updatedSessions);
+    // ensure queries are fresh so UI reflects the newly saved session immediately
+    queryClient.invalidateQueries({ queryKey: ['sessions'] });
+
+      const books = booksQuery.data ?? [];
+      const book = books.find((b) => b.id === fallbackBookId);
+      if (book) {
+        updateBook(book.id, {
+          currentPage: Math.min(book.currentPage + pagesRead, book.totalPages),
+          lastReadAt: endTime.toISOString(),
+          status: book.currentPage + pagesRead >= book.totalPages ? 'completed' : 'reading',
+        });
+      }
+
+      setCurrentSessionId(null);
+      return;
+    }
+
     const startTime = new Date(session.startTime);
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000 / 60);
 
     const updatedSessions = sessions.map((s) =>
       s.id === sessionId
-        ? { ...s, endTime: endTime.toISOString(), pagesRead, duration }
+        ? { ...s, endTime: endTime.toISOString(), pagesRead, duration, reflection }
         : s
     );
-    saveSessions(updatedSessions);
+  // use mutateAsync so callers can await persistence before navigating away
+  await saveSessionsM.mutateAsync(updatedSessions);
+  // explicitly invalidate to make sure consumers read the latest data
+  queryClient.invalidateQueries({ queryKey: ['sessions'] });
 
     const books = booksQuery.data ?? [];
     const book = books.find((b) => b.id === session.bookId);
@@ -114,7 +188,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     }
 
     setCurrentSessionId(null);
-  }, [sessionsQuery.data, booksQuery.data, saveSessions, updateBook]);
+  }, [sessionsQuery.data, booksQuery.data, saveSessionsM, updateBook]);
 
   const stats: ReadingStats = useMemo(() => {
     const books = booksQuery.data ?? [];

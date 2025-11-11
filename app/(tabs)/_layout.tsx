@@ -7,6 +7,10 @@ import { useTheme } from '@/contexts/theme-context';
 export default function TabLayout() {
   const { colors } = useTheme();
   
+  if (!colors) {
+    return null;
+  }
+  
   return (
     <Tabs
       screenOptions={{

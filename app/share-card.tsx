@@ -1,4 +1,5 @@
-import React, { useRef, useState, Platform } from 'react';
+import React, { useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { X, Share2, Download } from 'lucide-react-native';
@@ -18,7 +19,7 @@ export default function ShareCardScreen() {
 
   const handleShare = async () => {
     try {
-      if (Platform.OS !== 'web') {
+  if ((Platform.OS as any) !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
 
@@ -31,7 +32,7 @@ export default function ShareCardScreen() {
         quality: 1,
       });
 
-      if (Platform.OS === 'web') {
+  if ((Platform.OS as any) === 'web') {
         const a = document.createElement('a');
         a.href = uri;
         a.download = 'reading-progress.png';
@@ -45,7 +46,7 @@ export default function ShareCardScreen() {
         }
       }
 
-      if (Platform.OS !== 'web') {
+  if ((Platform.OS as any) !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
@@ -64,7 +65,7 @@ export default function ShareCardScreen() {
 
       if (!cardRef.current) return;
 
-      if (Platform.OS === 'web') {
+  if ((Platform.OS as any) === 'web') {
         await handleShare();
         return;
       }
@@ -84,7 +85,7 @@ export default function ShareCardScreen() {
 
       await MediaLibrary.saveToLibraryAsync(uri);
 
-      if (Platform.OS !== 'web') {
+  if ((Platform.OS as any) !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 

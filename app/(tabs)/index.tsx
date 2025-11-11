@@ -128,13 +128,13 @@ export default function FocusScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: '', headerShown: false }} />
       
-      <View style={styles.content}>
+  <View style={styles.content}>
         <View style={styles.header}>
           <Text style={[styles.greeting, { color: colors.text }]}>Focus</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Begin your reading ritual</Text>
         </View>
 
-        <View style={styles.mainContent}>
+  <View style={styles.mainContent}>
           {selectedBook ? (
             <Animated.View 
               {...panResponder.panHandlers}
@@ -209,17 +209,18 @@ export default function FocusScreen() {
             </View>
           )}
 
-          {currentBooks.length > 0 && (
-            <TouchableOpacity
-              style={styles.changeBookButton}
-              onPress={() => setShowBookPicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.changeBookText, { color: colors.primary }]}>Change Book</Text>
-              <ChevronRight size={18} color={colors.primary} strokeWidth={2} />
-            </TouchableOpacity>
-          )}
         </View>
+
+        {currentBooks.length > 0 && (
+          <TouchableOpacity
+            style={styles.changeBookButton}
+            onPress={() => setShowBookPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.changeBookText, { color: colors.primary }]}>Change Book</Text>
+            <ChevronRight size={18} color={colors.primary} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[
@@ -329,6 +330,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 40,
+    justifyContent: 'space-between',
   },
   header: {
     marginBottom: 48,
@@ -350,7 +352,7 @@ const styles = StyleSheet.create({
   },
   selectedBookCard: {
     borderRadius: 28,
-    padding: 32,
+    padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
@@ -361,18 +363,18 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   bookCoverLarge: {
-    width: 160,
-    height: 240,
-    borderRadius: 16,
-    marginBottom: 24,
+    width: 140,
+    height: 210,
+    borderRadius: 14,
+    marginBottom: 18,
   },
   bookCoverLargePlaceholder: {
-    width: 160,
-    height: 240,
-    borderRadius: 16,
+    width: 140,
+    height: 210,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 18,
   },
   bookTitleLarge: {
     fontSize: 22,
@@ -430,10 +432,11 @@ const styles = StyleSheet.create({
   changeBookButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 20,
-    paddingVertical: 12,
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
     paddingHorizontal: 20,
+    alignSelf: 'center',
   },
   changeBookText: {
     fontSize: 16,

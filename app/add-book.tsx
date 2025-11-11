@@ -1,4 +1,5 @@
-import React, { useState, Platform } from 'react';
+import React, { useState } from 'react';
+import { Platform } from 'react-native';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';

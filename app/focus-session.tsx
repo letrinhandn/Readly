@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X, Play, Pause, Check, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -21,12 +21,22 @@ export default function FocusSessionScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [pagesRead, setPagesRead] = useState(0);
+  const [pagesInput, setPagesInput] = useState('');
+  const [lastPageInput, setLastPageInput] = useState('');
+  const [showCompleteForm, setShowCompleteForm] = useState(false);
+  const [reflectionText, setReflectionText] = useState('');
+  const [countdownMode, setCountdownMode] = useState(false);
+  const [countdownDuration, setCountdownDuration] = useState<number>(25);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [inputHours, setInputHours] = useState('0');
+  const [inputMinutes, setInputMinutes] = useState('25');
   const [pulseAnim] = useState(new Animated.Value(1));
   const [showShareModal, setShowShareModal] = useState(false);
   const [completedSession, setCompletedSession] = useState<{
     duration: number;
     pagesRead: number;
     date: string;
+    reflection?: string;
   } | null>(null);
   const shareCardRef = React.useRef<View>(null);
 
@@ -37,18 +47,32 @@ export default function FocusSessionScreen() {
   }, [book]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds(s => s + 1);
-      }, 1000);
+      if (countdownMode) {
+        interval = setInterval(() => {
+          setRemainingSeconds((r) => {
+            if (r === null) return 0;
+            if (r <= 1) {
+              setIsRunning(false);
+              setShowCompleteForm(true);
+              return 0;
+            }
+            return r - 1;
+          });
+        }, 1000);
+      } else {
+        interval = setInterval(() => {
+          setSeconds((s) => s + 1);
+        }, 1000);
+      }
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning]);
+  }, [isRunning, countdownMode]);
 
   useEffect(() => {
     if (isRunning) {
@@ -71,11 +95,36 @@ export default function FocusSessionScreen() {
     }
   }, [isRunning, pulseAnim]);
 
+  useEffect(() => {
+    if (!book) return;
+    const lpTrim = lastPageInput.trim();
+    if (lpTrim !== '') {
+      const lp = parseInt(lpTrim, 10);
+      if (!isNaN(lp)) {
+        const remaining = Math.max(0, book.totalPages - book.currentPage);
+        const computed = Math.max(0, Math.min(lp - book.currentPage, remaining));
+        setPagesRead(computed);
+        return;
+      }
+    }
+    const pTrim = pagesInput.trim();
+    const p = parseInt(pTrim || '0', 10);
+    setPagesRead(isNaN(p) ? 0 : Math.max(0, p));
+  }, [pagesInput, lastPageInput, book]);
+
   const handleStart = useCallback(() => {
     if (!book) return;
     const newSessionId = startReadingSession(book.id);
     setSessionId(newSessionId);
     setIsRunning(true);
+    setPagesInput('');
+    setLastPageInput('');
+    setPagesRead(0);
+    if (countdownMode) {
+      setRemainingSeconds(countdownDuration * 60);
+    } else {
+      setSeconds(0);
+    }
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -96,21 +145,32 @@ export default function FocusSessionScreen() {
   }, []);
 
   const handleComplete = useCallback(() => {
-    if (sessionId) {
-      const duration = Math.floor(seconds / 60);
-      endReadingSession(sessionId, pagesRead);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      
-      setCompletedSession({
-        duration,
-        pagesRead,
-        date: new Date().toISOString(),
-      });
-      setShowShareModal(true);
+    if (!sessionId) return;
+    // open the complete session form/modal
+    setShowCompleteForm(true);
+  }, [sessionId]);
+
+  const confirmComplete = useCallback(async () => {
+    if (!sessionId) return;
+    const duration = Math.floor(seconds / 60);
+    // trim reflection to reasonable length (300 words)
+    const words = reflectionText.trim().split(/\s+/).filter(Boolean);
+    const limited = words.length > 300 ? words.slice(0, 300).join(' ') : reflectionText.trim();
+  // persist the session (await to ensure AsyncStorage write completes)
+  await endReadingSession(sessionId, Number(pagesRead || 0), limited, book?.id);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-  }, [sessionId, pagesRead, seconds, endReadingSession]);
+
+    setCompletedSession({
+      duration,
+      pagesRead: Number(pagesRead || 0),
+      date: new Date().toISOString(),
+      reflection: limited,
+    });
+    setShowShareModal(true);
+    setShowCompleteForm(false);
+  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession]);
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -183,45 +243,77 @@ export default function FocusSessionScreen() {
           <Text style={styles.bookAuthor}>{book.author}</Text>
         </View>
 
+        <View style={styles.modesWrapper}>
+          <View style={styles.modeRow}>
+            <TouchableOpacity onPress={() => setCountdownMode(false)} style={[styles.modeButton, !countdownMode && styles.modeActive]}>
+              <Text style={[styles.modeText, !countdownMode && styles.modeTextActive]}>Count up</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCountdownMode(true)} style={[styles.modeButton, countdownMode && styles.modeActive]}>
+              <Text style={[styles.modeText, countdownMode && styles.modeTextActive]}>Countdown</Text>
+            </TouchableOpacity>
+          </View>
+
+          {countdownMode && (
+            <View style={styles.presetsRow} pointerEvents="box-none">
+              <View style={styles.timeInputsRow}>
+                <View style={styles.timeInputColumn}>
+                  <Text style={styles.inputLabel}>Hours</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    keyboardType="number-pad"
+                    value={inputHours}
+                    onChangeText={(t) => {
+                      const digits = t.replace(/[^0-9]/g, '');
+                      setInputHours(digits);
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={'rgba(255,255,255,0.5)'}
+                  />
+                </View>
+
+                <View style={styles.timeInputColumn}>
+                  <Text style={styles.inputLabel}>Minutes</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    keyboardType="number-pad"
+                    value={inputMinutes}
+                    onChangeText={(t) => {
+                      const digits = t.replace(/[^0-9]/g, '');
+                      let num = parseInt(digits || '0', 10);
+                      if (isNaN(num)) num = 0;
+                      if (num > 59) num = 59;
+                      setInputMinutes(String(num));
+                    }}
+                    placeholder="15"
+                    placeholderTextColor={'rgba(255,255,255,0.5)'}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.setButton}
+                  onPress={() => {
+                    const h = parseInt(inputHours || '0', 10) || 0;
+                    const m = parseInt(inputMinutes || '0', 10) || 0;
+                    const total = Math.max(0, h * 60 + m);
+                    setCountdownDuration(total);
+                    if (!isRunning) setRemainingSeconds(total * 60);
+                  }}
+                >
+                  <Text style={styles.setButtonText}>Set</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
         <Animated.View style={[styles.timerCircle, { transform: [{ scale: pulseAnim }] }]}>
-          <Text style={styles.timerText}>{formatTime(seconds)}</Text>
-          {isRunning && <Text style={styles.timerLabel}>Reading...</Text>}
+          <Text style={styles.timerText}>{countdownMode ? formatTime(remainingSeconds ?? countdownDuration * 60) : formatTime(seconds)}</Text>
+          {isRunning && <Text style={styles.timerLabel}>{countdownMode ? 'Counting down...' : 'Reading...'}</Text>}
           {!isRunning && sessionId && <Text style={styles.timerLabel}>Paused</Text>}
           {!sessionId && <Text style={styles.timerLabel}>Ready to start</Text>}
         </Animated.View>
 
-        {sessionId && (
-          <View style={styles.pagesControl}>
-            <Text style={styles.pagesLabel}>Pages read this session</Text>
-            <View style={styles.pagesButtons}>
-              <TouchableOpacity
-                style={styles.pageButton}
-                onPress={() => {
-                  if (pagesRead > 0) setPagesRead(p => p - 1);
-                  if (Platform.OS !== 'web') {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.pageButtonText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.pagesValue}>{pagesRead}</Text>
-              <TouchableOpacity
-                style={styles.pageButton}
-                onPress={() => {
-                  setPagesRead(p => p + 1);
-                  if (Platform.OS !== 'web') {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.pageButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        
 
         <View style={styles.controls}>
           {!sessionId && (
@@ -230,8 +322,8 @@ export default function FocusSessionScreen() {
               onPress={handleStart}
               activeOpacity={0.7}
             >
-              <Play size={28} color={Colors.light.surface} strokeWidth={2} />
               <Text style={styles.primaryButtonText}>Start Reading</Text>
+              <Play size={20} color={Colors.light.primary} strokeWidth={2} style={styles.buttonIcon} />
             </TouchableOpacity>
           )}
 
@@ -242,16 +334,16 @@ export default function FocusSessionScreen() {
                 onPress={handleResume}
                 activeOpacity={0.7}
               >
-                <Play size={28} color={Colors.light.surface} strokeWidth={2} />
                 <Text style={styles.primaryButtonText}>Resume</Text>
+                <Play size={20} color={Colors.light.primary} strokeWidth={2} style={styles.buttonIcon} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.completeButton}
                 onPress={handleComplete}
                 activeOpacity={0.7}
               >
-                <Check size={24} color={Colors.light.success} strokeWidth={2.5} />
                 <Text style={styles.completeButtonText}>Complete Session</Text>
+                <Check size={18} color={Colors.light.success} strokeWidth={2.5} style={styles.buttonIcon} />
               </TouchableOpacity>
             </>
           )}
@@ -262,8 +354,8 @@ export default function FocusSessionScreen() {
               onPress={handlePause}
               activeOpacity={0.7}
             >
-              <Pause size={28} color={Colors.light.surface} strokeWidth={2} />
               <Text style={styles.primaryButtonText}>Pause</Text>
+              <Pause size={20} color={Colors.light.primary} strokeWidth={2} style={styles.buttonIcon} />
             </TouchableOpacity>
           )}
         </View>
@@ -314,6 +406,81 @@ export default function FocusSessionScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showCompleteForm}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCompleteForm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Complete Session</Text>
+            <Text style={styles.modalSubtitle}>Enter pages read or the last page number</Text>
+
+            <View style={{ width: '100%', marginBottom: 12 }}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputColumn}>
+                  <Text style={styles.inputLabel}>Pages</Text>
+                  <TextInput
+                    style={[styles.pageInput, styles.pageInputLeft]}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 20"
+                    placeholderTextColor={'rgba(0,0,0,0.35)'}
+                    value={pagesInput}
+                    onChangeText={(t) => { setPagesInput(t); if (t.trim() !== '') setLastPageInput(''); }}
+                  />
+                </View>
+
+                <Text style={styles.orText}>or</Text>
+
+                <View style={styles.inputColumn}>
+                  <Text style={styles.inputLabel}>Last page</Text>
+                  <TextInput
+                    style={[styles.pageInput, styles.pageInputRight]}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 123"
+                    placeholderTextColor={'rgba(0,0,0,0.35)'}
+                    value={lastPageInput}
+                    onChangeText={(t) => { setLastPageInput(t); if (t.trim() !== '') setPagesInput(''); }}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <Text style={[styles.modalPagesValue, { marginBottom: 12 }]}>{pagesRead}</Text>
+
+            <View style={{ width: '100%', marginBottom: 12 }}>
+              <Text style={[styles.inputLabel, { textAlign: 'left', marginBottom: 8 }]}>Reflection (optional)</Text>
+              <TextInput
+                style={styles.reflectionInput}
+                multiline
+                placeholder="Write a short reflection (optional, under 300 words)"
+                placeholderTextColor={'rgba(0,0,0,0.25)'}
+                value={reflectionText}
+                onChangeText={(t) => {
+                  const words = t.trim().split(/\s+/).filter(Boolean);
+                  if (words.length > 300) {
+                    setReflectionText(words.slice(0, 300).join(' '));
+                  } else {
+                    setReflectionText(t);
+                  }
+                }}
+              />
+              <Text style={styles.wordCountText}>{reflectionText.trim().split(/\s+/).filter(Boolean).length} / 300 words</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={[styles.skipButton, { flex: 1 }]} onPress={() => setShowCompleteForm(false)}>
+                <Text style={styles.skipButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.shareButton, { flex: 1 }]} onPress={confirmComplete}>
+                <Text style={styles.shareButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -348,6 +515,7 @@ const styles = StyleSheet.create({
   bookInfo: {
     alignItems: 'center',
     maxWidth: 300,
+    marginTop: -30,
   },
   bookTitle: {
     fontSize: 24,
@@ -362,6 +530,103 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
   },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: 12,
+  },
+  modeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeActive: {
+    backgroundColor: Colors.light.surface,
+  },
+  modeText: {
+    color: Colors.light.textSecondary,
+    fontWeight: '600' as const,
+  },
+  modeTextActive: {
+    color: Colors.light.primary,
+  },
+  presetButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  presetActive: {
+    backgroundColor: Colors.light.surface,
+  },
+  presetText: {
+    color: Colors.light.surface,
+    fontWeight: '600' as const,
+  },
+  timeInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  timeInputColumn: {
+    alignItems: 'center',
+  },
+  timeInput: {
+    width: 64,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    color: Colors.light.surface,
+    textAlign: 'center',
+    fontSize: 16,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+  },
+  setButton: {
+    backgroundColor: Colors.light.surface,
+    height: 40,
+    minWidth: 64,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    marginTop: 20,
+  },
+  setButtonText: {
+    color: Colors.light.primary,
+    fontWeight: '700' as const,
+    fontSize: 16,
+    lineHeight: 40,
+    textAlign: 'center',
+  },
+  modesWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    position: 'relative',
+    marginVertical: 6,
+    minHeight: 44,
+    marginTop: -50,
+  },
+  presetsRow: {
+    position: 'absolute',
+    top: 57,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    zIndex: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 14,
+    backgroundColor: 'transparent',
+  },
   timerCircle: {
     width: 240,
     height: 240,
@@ -371,6 +636,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 30,
   },
   timerText: {
     fontSize: 56,
@@ -398,6 +664,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 24,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  pageInput: {
+    width: 120,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 12,
+    color: Colors.light.surface,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  inputColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  orText: {
+    color: Colors.light.textSecondary,
+    marginHorizontal: 10,
+    fontWeight: '600' as const,
+  },
+  pageInputLeft: {
+    width: '100%',
+    maxWidth: 140,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    color: Colors.light.text,
+    fontSize: 18,
+  },
+  pageInputRight: {
+    width: '100%',
+    maxWidth: 140,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    color: Colors.light.text,
+    fontSize: 18,
+  },
+  modalPagesValue: {
+    fontSize: 40,
+    fontWeight: '800' as const,
+    color: Colors.light.text,
+    textAlign: 'center',
+  },
+  reflectionInput: {
+    width: '100%',
+    minHeight: 80,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    color: Colors.light.text,
+    marginBottom: 6,
+  },
+  wordCountText: {
+    alignSelf: 'flex-end',
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginBottom: 6,
+  },
   pageButton: {
     width: 56,
     height: 56,
@@ -405,11 +743,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pageButtonText: {
-    fontSize: 32,
-    fontWeight: '600' as const,
-    color: Colors.light.surface,
   },
   pagesValue: {
     fontSize: 40,
@@ -426,10 +759,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
     borderRadius: 20,
     padding: 20,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 6,
   },
   pauseButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -439,15 +772,16 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.light.primary,
     letterSpacing: -0.3,
+    textAlign: 'center',
   },
   completeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 20,
     padding: 20,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 6,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
@@ -456,6 +790,11 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.light.surface,
     letterSpacing: -0.2,
+    textAlign: 'center',
+  },
+
+  buttonIcon: {
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,

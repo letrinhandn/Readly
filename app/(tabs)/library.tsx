@@ -1,23 +1,112 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Platform, ActivityIndicator, Image, Dimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Platform, ActivityIndicator, Image, Dimensions, Keyboard } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { BookOpen, Plus, X, Search, Camera } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
+import BookForm from '@/components/BookForm';
 import { GoogleBook, Book } from '@/types/book';
 
 export default function LibraryScreen() {
   const { books, addBook } = useReading();
   const { colors } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
-  const [showGoogleResults, setShowGoogleResults] = useState(false);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [totalPages, setTotalPages] = useState('');
+  const [description, setDescription] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [thumbnail, setThumbnail] = useState('');
+  const [isbn, setIsbn] = useState('');
+  const [isbn13, setIsbn13] = useState('');
+  const [publishedDate, setPublishedDate] = useState('');
+  const [publisher, setPublisher] = useState('');
+  const [categories, setCategories] = useState('');
+  const [language, setLanguage] = useState('');
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+  const [modalShowResults, setModalShowResults] = useState(false);
+  const [modalMode, setModalMode] = useState<'search' | 'manual'>('search');
+  const modalMaxHeight = Math.round(Dimensions.get('window').height * 0.8);
+  const scrollRef = useRef<any>(null);
+  const inputPositions = useRef<Record<string, { y: number; height: number }>>({});
+  const scrollY = useRef<number>(0);
+  const scrollViewHeight = useRef<number>(modalMaxHeight);
+  const pendingFocusId = useRef<string | null>(null);
+
+  const registerLayout = (id: string, e: any) => {
+    const { y, height } = e.nativeEvent.layout;
+    inputPositions.current[id] = { y, height };
+  };
+
+  const keyboardHeight = useRef<number>(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      keyboardHeight.current = e.endCoordinates?.height || 0;
+      const id = pendingFocusId.current;
+      if (id) {
+        setTimeout(() => {
+          performScrollToInput(id);
+          pendingFocusId.current = null;
+        }, 50);
+      }
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardHeight.current = 0;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const performScrollToInput = (id: string) => {
+    const entry = inputPositions.current[id];
+    if (!entry) return;
+
+    const { y: inputTop, height: inputHeight } = entry;
+    const visibleTop = scrollY.current;
+    const visibleBottom = scrollY.current + (scrollViewHeight.current || modalMaxHeight) - (keyboardHeight.current || 0);
+    const inputBottom = inputTop + (inputHeight || 48);
+    const paddingTop = 12;
+    const paddingBottom = Math.max(40, keyboardHeight.current + 40);
+
+    if (inputTop >= (visibleTop + paddingTop) && inputBottom <= (visibleBottom - paddingBottom)) {
+      return;
+    }
+
+    let target = Math.max(0, inputTop - paddingTop);
+    if (inputBottom > (visibleBottom - paddingBottom)) {
+      const visibleArea = (scrollViewHeight.current || modalMaxHeight) - (keyboardHeight.current || 0);
+      target = Math.max(0, inputTop - Math.max(paddingTop, visibleArea / 3));
+    }
+
+    scrollRef.current?.scrollTo({ y: target, animated: true });
+  };
+
+  const requestScrollToInput = (id: string) => {
+    pendingFocusId.current = id;
+    if (Platform.OS === 'web') {
+      setTimeout(() => {
+        performScrollToInput(id);
+        pendingFocusId.current = null;
+      }, 120);
+      return;
+    }
+
+    if (keyboardHeight.current > 0) {
+      setTimeout(() => {
+        performScrollToInput(id);
+        pendingFocusId.current = null;
+      }, 80);
+    }
+  };
+
+  
 
   const filterBooks = (booksList: Book[]) => {
     if (!internalSearchQuery.trim()) return booksList;
@@ -31,18 +120,46 @@ export default function LibraryScreen() {
   const currentBooks = filterBooks(books.filter(b => b.status === 'reading'));
   const completedBooks = filterBooks(books.filter(b => b.status === 'completed'));
 
-  const googleBooksQuery = useQuery({
-    queryKey: ['googleBooks', searchQuery],
+  // Note: page-level Google Books search removed — modal-only search kept below
+
+  const modalGoogleBooksQuery = useQuery({
+    queryKey: ['modalGoogleBooks', modalSearchQuery],
     queryFn: async () => {
-      if (!searchQuery.trim()) return [];
+      if (!modalSearchQuery.trim()) return [];
       const response = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=10`
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(modalSearchQuery)}&maxResults=10`
       );
       const data = await response.json();
       return (data.items || []) as GoogleBook[];
     },
-    enabled: searchQuery.trim().length > 0 && showGoogleResults,
+    enabled: modalSearchQuery.trim().length > 0 && modalShowResults,
   });
+
+  const handleSelectModalGoogleBook = (book: GoogleBook) => {
+    setTitle(book.volumeInfo.title);
+    setAuthor(book.volumeInfo.authors?.join(', ') || 'Unknown Author');
+    setTotalPages(book.volumeInfo.pageCount?.toString() || '');
+    const isbn13 = book.volumeInfo.industryIdentifiers?.find(
+      id => id.type === 'ISBN_13'
+    )?.identifier;
+    const isbnVal = book.volumeInfo.industryIdentifiers?.find(
+      id => id.type === 'ISBN_10'
+    )?.identifier || isbn13;
+
+    setDescription(book.volumeInfo.description || '');
+    setThumbnail(book.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || '');
+    setCoverUrl(book.volumeInfo.imageLinks?.medium?.replace('http:', 'https:') || book.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || '');
+    setIsbn(isbnVal || '');
+    setIsbn13(isbn13 || '');
+    setPublishedDate(book.volumeInfo.publishedDate || '');
+    setPublisher(book.volumeInfo.publisher || '');
+    setCategories((book.volumeInfo.categories || []).join(', '));
+    setLanguage(book.volumeInfo.language || '');
+
+    setModalShowResults(false);
+    setModalSearchQuery('');
+    setModalMode('manual');
+  };
 
   const handleAddBook = () => {
     if (!title.trim() || !author.trim() || !totalPages.trim()) {
@@ -56,14 +173,33 @@ export default function LibraryScreen() {
       currentPage: 0,
       startedAt: new Date().toISOString(),
       status: 'reading',
+      description: description || undefined,
+      thumbnail: thumbnail || undefined,
+      coverUrl: coverUrl || undefined,
+      isbn: isbn || undefined,
+      isbn13: isbn13 || undefined,
+      publishedDate: publishedDate || undefined,
+      publisher: publisher || undefined,
+      categories: categories ? categories.split(',').map(c => c.trim()).filter(Boolean) : undefined,
+      language: language || undefined,
+      pageCount: totalPages ? parseInt(totalPages, 10) : undefined,
     });
 
-    setTitle('');
-    setAuthor('');
-    setTotalPages('');
+  setTitle('');
+  setAuthor('');
+  setTotalPages('');
+  setDescription('');
+  setCoverUrl('');
+  setThumbnail('');
+  setIsbn('');
+  setIsbn13('');
+  setPublishedDate('');
+  setPublisher('');
+  setCategories('');
+  setLanguage('');
+  setModalMode('search');
     setModalVisible(false);
-    setShowGoogleResults(false);
-    setSearchQuery('');
+    
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -98,8 +234,6 @@ export default function LibraryScreen() {
       googleBooksId: book.id,
     });
 
-    setShowGoogleResults(false);
-    setSearchQuery('');
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -168,14 +302,19 @@ export default function LibraryScreen() {
                       {book.author}
                     </Text>
                     {book.status === 'reading' && (
-                      <View style={styles.progressContainer}>
-                        <Text style={[styles.progressPercentage, { color: colors.primary }]}>
-                          {Math.round((book.currentPage / book.totalPages) * 100)}%
-                        </Text>
-                        <View style={[styles.progressBarContainer, { backgroundColor: colors.surfaceSecondary }]}>
-                          <View style={[styles.progressBar, { width: `${Math.round((book.currentPage / book.totalPages) * 100)}%`, backgroundColor: colors.primary }]} />
-                        </View>
-                      </View>
+                      (() => {
+                        const percent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
+                        return (
+                          <View style={styles.progressContainer}>
+                            <Text style={[styles.progressPercentage, { color: colors.primary }]}>
+                              {percent}%
+                            </Text>
+                            <View style={[styles.progressBarContainer, { backgroundColor: colors.surfaceSecondary }]}>
+                              <View style={[styles.progressBar, { width: `${percent}%`, backgroundColor: colors.primary }]} />
+                            </View>
+                          </View>
+                        );
+                      })()
                     )}
                   </View>
                 </TouchableOpacity>
@@ -217,76 +356,12 @@ export default function LibraryScreen() {
           )}
         </View>
 
-        {!showGoogleResults && books.length > 0 && (
-          <View style={[styles.googleSearchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Search size={20} color={colors.textTertiary} strokeWidth={2} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setShowGoogleResults(text.trim().length > 0);
-              }}
-              placeholder="Search Google Books..."
-              placeholderTextColor={colors.textTertiary}
-            />
-          </View>
-        )}
-
-        {showGoogleResults && searchQuery.trim().length > 0 && (
-          <View style={[styles.googleResultsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.googleHeader}>
-              <Text style={[styles.googleTitle, { color: colors.text }]}>Google Books Results</Text>
-              <TouchableOpacity onPress={() => setShowGoogleResults(false)}>
-                <X size={20} color={colors.textSecondary} strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-            {googleBooksQuery.isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : (
-              <ScrollView style={styles.googleResults} showsVerticalScrollIndicator={false}>
-                {(googleBooksQuery.data || []).map((book) => (
-                  <TouchableOpacity
-                    key={book.id}
-                    style={[styles.googleBookCard, { backgroundColor: colors.surfaceSecondary }]}
-                    onPress={() => handleSelectGoogleBook(book)}
-                    activeOpacity={0.7}
-                  >
-                    {book.volumeInfo.imageLinks?.thumbnail && (
-                      <Image
-                        source={{ uri: book.volumeInfo.imageLinks.thumbnail }}
-                        style={styles.googleBookCover}
-                      />
-                    )}
-                    <View style={styles.googleBookInfo}>
-                      <Text style={[styles.googleBookTitle, { color: colors.text }]} numberOfLines={2}>
-                        {book.volumeInfo.title}
-                      </Text>
-                      <Text style={[styles.googleBookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {book.volumeInfo.authors?.join(', ') || 'Unknown Author'}
-                      </Text>
-                      {book.volumeInfo.pageCount && (
-                        <Text style={[styles.googleBookPages, { color: colors.textTertiary }]}>
-                          {book.volumeInfo.pageCount} pages
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                {googleBooksQuery.data && googleBooksQuery.data.length === 0 && (
-                  <Text style={[styles.noResults, { color: colors.textSecondary }]}>No books found</Text>
-                )}
-              </ScrollView>
-            )}
-          </View>
-        )}
+        
 
         {renderBookShelf('Currently Reading', currentBooks)}
         {renderBookShelf('Completed', completedBooks)}
 
-        {books.length === 0 && !showGoogleResults && (
+        {books.length === 0 && (
           <View style={styles.emptyState}>
             <BookOpen size={64} color={colors.textTertiary} strokeWidth={1} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>Your library is empty</Text>
@@ -316,64 +391,183 @@ export default function LibraryScreen() {
       >
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Add New Book</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} activeOpacity={0.7}>
-                <X size={24} color={colors.textSecondary} strokeWidth={2} />
-              </TouchableOpacity>
+            <View style={[styles.modalInner, { height: modalMaxHeight }]}> 
+              <View style={styles.modalFixedHeader}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Add New Book</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)} activeOpacity={0.7}>
+                    <X size={24} color={colors.textSecondary} strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.modalToggle}>
+                  <TouchableOpacity
+                    style={[styles.modalToggleButton, modalMode === 'search' && styles.modalToggleActive]}
+                    onPress={() => setModalMode('search')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalToggleText, modalMode === 'search' && styles.modalToggleTextActive]}>Search</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalToggleButton, modalMode === 'manual' && styles.modalToggleActive]}
+                    onPress={() => setModalMode('manual')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalToggleText, modalMode === 'manual' && styles.modalToggleTextActive]}>Add manually</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <ScrollView
+                ref={scrollRef}
+                contentContainerStyle={{ padding: 20, paddingBottom: Math.max(40, keyboardHeight.current + 40) }}
+                style={{ flex: 1 }}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={true}
+                onLayout={(e) => { scrollViewHeight.current = e.nativeEvent.layout.height; }}
+                onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; }}
+                scrollEventThrottle={16}
+              >
+                {modalMode === 'search' ? (
+                  <>
+                    <View style={[styles.modalSearchBar, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                      <Search size={20} color={colors.textTertiary} strokeWidth={2} />
+                      <TextInput
+                        style={[styles.modalSearchInput, { color: colors.text }]}
+                        value={modalSearchQuery}
+                        onChangeText={(text) => {
+                          setModalSearchQuery(text);
+                          setModalShowResults(text.trim().length > 0);
+                        }}
+                        placeholder="Search Google Books..."
+                        placeholderTextColor={colors.textTertiary}
+                      />
+                      {modalSearchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => { setModalSearchQuery(''); setModalShowResults(false); }}>
+                          <X size={20} color={colors.textTertiary} strokeWidth={2} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {modalShowResults && modalSearchQuery.trim().length > 0 && (
+                      <View style={[styles.modalResultsContainer, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                        <View style={styles.modalResultsHeader}>
+                          <Text style={[styles.modalResultsTitle, { color: colors.text }]}>Google Books Results</Text>
+                          <TouchableOpacity onPress={() => setModalShowResults(false)}>
+                            <X size={20} color={colors.textSecondary} strokeWidth={2} />
+                          </TouchableOpacity>
+                        </View>
+                        {modalGoogleBooksQuery.isLoading ? (
+                          <View style={styles.modalLoadingContainer}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          </View>
+                        ) : (
+                          <ScrollView style={styles.modalResults} showsVerticalScrollIndicator={false}>
+                            {(modalGoogleBooksQuery.data || []).map((book) => (
+                              <TouchableOpacity
+                                key={book.id}
+                                style={[styles.modalBookCard, { backgroundColor: colors.surface }]}
+                                onPress={() => handleSelectModalGoogleBook(book)}
+                                activeOpacity={0.7}
+                              >
+                                {book.volumeInfo.imageLinks?.thumbnail && (
+                                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail }} style={styles.modalBookCover} />
+                                )}
+                                <View style={styles.modalBookInfo}>
+                                  <Text style={[styles.modalBookTitle, { color: colors.text }]} numberOfLines={2}>{book.volumeInfo.title}</Text>
+                                  <Text style={[styles.modalBookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>{book.volumeInfo.authors?.join(', ') || 'Unknown Author'}</Text>
+                                  {book.volumeInfo.pageCount && (<Text style={[styles.modalBookPages, { color: colors.textTertiary }]}>{book.volumeInfo.pageCount} pages</Text>)}
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                            {modalGoogleBooksQuery.data && modalGoogleBooksQuery.data.length === 0 && (
+                              <Text style={[styles.modalNoResults, { color: colors.textSecondary }]}>No books found</Text>
+                            )}
+                          </ScrollView>
+                        )}
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <>
+                      <BookForm
+                        initialValues={{
+                          title,
+                          author,
+                          totalPages,
+                          coverUrl,
+                          thumbnail,
+                          isbn,
+                          isbn13,
+                          publishedDate,
+                          publisher,
+                          categories,
+                          language,
+                          description,
+                        }}
+                        onSubmit={(vals) => {
+                          addBook({
+                            title: vals.title || '',
+                            author: vals.author || '',
+                            totalPages: parseInt(vals.totalPages || '0', 10) || 0,
+                            currentPage: 0,
+                            startedAt: new Date().toISOString(),
+                            status: 'reading',
+                            description: vals.description || undefined,
+                            thumbnail: vals.thumbnail || undefined,
+                            coverUrl: vals.coverUrl || undefined,
+                            isbn: vals.isbn || undefined,
+                            isbn13: vals.isbn13 || undefined,
+                            publishedDate: vals.publishedDate || undefined,
+                            publisher: vals.publisher || undefined,
+                            categories: vals.categories ? vals.categories.split(',').map(c => c.trim()).filter(Boolean) : undefined,
+                            language: vals.language || undefined,
+                            pageCount: vals.totalPages ? parseInt(vals.totalPages, 10) : undefined,
+                          });
+
+
+                            setTitle('');
+                            setAuthor('');
+                            setTotalPages('');
+                            setDescription('');
+                            setCoverUrl('');
+                            setThumbnail('');
+                            setIsbn('');
+                            setIsbn13('');
+                            setPublishedDate('');
+                            setPublisher('');
+                            setCategories('');
+                            setLanguage('');
+                            setModalMode('search');
+                            setModalVisible(false);
+
+                          if (Platform.OS !== 'web') {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          }
+                        }}
+                        onCancel={() => setModalMode('search')}
+                        submitLabel="Add Book"
+                        showScanButton
+                        onScan={handleOpenCamera}
+                        registerLayout={registerLayout}
+                        onFocusRequest={requestScrollToInput}
+                      />
+                  </>
+                )}
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: colors.primary }, (!title.trim() || !author.trim() || !totalPages.trim()) && styles.addButtonDisabled]}
+                  onPress={handleAddBook}
+                  disabled={!title.trim() || !author.trim() || !totalPages.trim()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.addButtonText, { color: colors.surface }]}>Add Book</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <TouchableOpacity
-              style={[styles.scanButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-              onPress={handleOpenCamera}
-              activeOpacity={0.7}
-            >
-              <Camera size={20} color={colors.primary} strokeWidth={2} />
-              <Text style={[styles.scanButtonText, { color: colors.primary }]}>Scan Book Cover</Text>
-            </TouchableOpacity>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Book Title</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Enter book title"
-                placeholderTextColor={colors.textTertiary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Author</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
-                value={author}
-                onChangeText={setAuthor}
-                placeholder="Enter author name"
-                placeholderTextColor={colors.textTertiary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Total Pages</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
-                value={totalPages}
-                onChangeText={setTotalPages}
-                placeholder="Enter total pages"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="number-pad"
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }, (!title.trim() || !author.trim() || !totalPages.trim()) && styles.addButtonDisabled]}
-              onPress={handleAddBook}
-              disabled={!title.trim() || !author.trim() || !totalPages.trim()}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.addButtonText, { color: colors.surface }]}>Add Book</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -390,7 +584,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 60,
-    paddingBottom: 120,
+    paddingBottom: 168,
   },
   header: {
     marginBottom: 32,
@@ -590,7 +784,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 20,
     right: 24,
     width: 64,
     height: 64,
@@ -610,10 +804,33 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
+    width: '90%',
+    maxWidth: 520,
+    // we'll set explicit height when rendering using modalMaxHeight
+    maxHeight: '80%',
+    borderRadius: 20,
+    padding: 0,
+    paddingBottom: 12,
+    overflow: 'hidden',
+  },
+  modalInner: {
     width: '100%',
-    maxWidth: 400,
-    borderRadius: 28,
-    padding: 28,
+    flexDirection: 'column',
+  },
+  modalFixedHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  modalFooter: {
+    padding: 16,
+    paddingBottom: 50,
+    borderTopWidth: 1,
+    borderTopColor: '#00000006',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -656,12 +873,110 @@ const styles = StyleSheet.create({
   },
   addButton: {
     borderRadius: 14,
-    padding: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    minHeight: 52,
+    width: '92%',
+    alignSelf: 'center',
     alignItems: 'center',
     marginTop: 8,
   },
   addButtonDisabled: {
     opacity: 0.5,
+  },
+  modalToggle: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  modalToggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  modalToggleActive: {
+    backgroundColor: '#eee',
+  },
+  modalToggleText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#444',
+  },
+  modalToggleTextActive: {
+    color: '#000',
+  },
+  modalSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  modalSearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  modalResultsContainer: {
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 12,
+    maxHeight: 260,
+    borderWidth: 1,
+  },
+  modalResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalResultsTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  modalResults: {
+    maxHeight: 220,
+  },
+  modalBookCard: {
+    flexDirection: 'row',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  modalBookCover: {
+    width: 40,
+    height: 60,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  modalBookInfo: {
+    flex: 1,
+  },
+  modalBookTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  modalBookAuthor: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  modalBookPages: {
+    fontSize: 11,
+  },
+  modalLoadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalNoResults: {
+    textAlign: 'center',
+    padding: 12,
+    fontSize: 13,
   },
   addButtonText: {
     fontSize: 16,

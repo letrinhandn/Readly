@@ -42,25 +42,32 @@ function RootLayoutNav() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('Auth state changed:', _event, !!session);
+      
+      if (_event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery event detected');
+        router.push('/reset-password');
+      }
+      
       setIsAuthenticated(!!session);
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (isAuthenticated === null) return;
 
-    const inAuthGroup = segments[0] === 'login';
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'forgot-password';
+    const inResetPassword = segments[0] === 'reset-password';
 
-    if (!isAuthenticated && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup && !inResetPassword) {
       router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, segments]);
+  }, [isAuthenticated, segments, router]);
 
   if (isAuthenticated === null) {
     return null;
@@ -69,6 +76,8 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="add-book" options={{ presentation: 'modal', title: 'Add Book' }} />
       <Stack.Screen name="edit-book" options={{ presentation: 'modal', title: 'Edit Book' }} />

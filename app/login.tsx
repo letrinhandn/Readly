@@ -67,12 +67,14 @@ export default function LoginScreen() {
             id: data.user.id,
             name: name || 'Reader',
             bio: 'Keep up the great reading habit!',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           });
 
           if (profileError) {
             console.error('Profile creation error:', profileError);
+            Alert.alert('Error', `Failed to create profile: ${profileError.message || 'Unknown error'}`);
+            throw profileError;
           } else {
             console.log('Profile created successfully');
           }

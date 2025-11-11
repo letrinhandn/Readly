@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { UserProfile } from '@/types/user';
+import { UserProfile, UserProfileDB, dbToProfile, profileToDb } from '@/types/user';
 
 const USER_PROFILE_KEY = 'readly_user_profile';
 
@@ -39,7 +39,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
         
         if (data) {
           console.log('Profile loaded from Supabase:', data.name);
-          return data as UserProfile;
+          return dbToProfile(data as UserProfileDB);
         }
       } catch (err) {
         console.log('Failed to load from Supabase, trying AsyncStorage:', err);
@@ -68,7 +68,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const saveProfileM = useMutation({
     mutationFn: async (profile: UserProfile) => {
       try {
-        const { error } = await supabase.from('user_profiles').upsert(profile);
+        const dbProfile = profileToDb(profile);
+        const { error } = await supabase.from('user_profiles').upsert(dbProfile);
         if (error) {
           console.log('Error saving to Supabase:', error.message);
           throw error;

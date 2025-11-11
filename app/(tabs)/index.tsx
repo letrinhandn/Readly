@@ -28,65 +28,79 @@ export default function FocusScreen() {
   const selectedBook = currentBooks[currentBookIndex] || null;
 
   const swipeToNext = () => {
-    if (currentBookIndex < currentBooks.length - 1) {
-      setCurrentBookIndex(currentBookIndex + 1);
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+    const nextIndex = (currentBookIndex + 1) % currentBooks.length;
+    setCurrentBookIndex(nextIndex);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const swipeToPrev = () => {
-    if (currentBookIndex > 0) {
-      setCurrentBookIndex(currentBookIndex - 1);
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+    const prevIndex = (currentBookIndex - 1 + currentBooks.length) % currentBooks.length;
+    setCurrentBookIndex(prevIndex);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
+  const isAnimating = useRef(false);
+
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => !isAnimating.current,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 5;
+        return !isAnimating.current && Math.abs(gestureState.dx) > 5;
       },
       onPanResponderMove: (_, gestureState) => {
+        if (isAnimating.current) return;
         pan.setValue({ x: gestureState.dx, y: 0 });
-        const opacity = 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH * 0.7);
-        cardOpacity.setValue(Math.max(0.5, opacity));
+        const opacity = 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH * 0.8);
+        cardOpacity.setValue(Math.max(0.6, opacity));
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > SWIPE_THRESHOLD) {
-          Animated.timing(pan, {
-            toValue: { x: SCREEN_WIDTH, y: 0 },
-            duration: 200,
-            useNativeDriver: false,
-          }).start(() => {
-            swipeToPrev();
+        if (isAnimating.current) return;
+        
+        const velocity = Math.abs(gestureState.vx);
+        const shouldSwipe = Math.abs(gestureState.dx) > SWIPE_THRESHOLD || velocity > 0.5;
+        
+        if (shouldSwipe) {
+          isAnimating.current = true;
+          const direction = gestureState.dx > 0 ? 1 : -1;
+          const toValue = direction * SCREEN_WIDTH * 1.2;
+          
+          Animated.parallel([
+            Animated.timing(pan, {
+              toValue: { x: toValue, y: 0 },
+              duration: 150,
+              useNativeDriver: true,
+            }),
+            Animated.timing(cardOpacity, {
+              toValue: 0,
+              duration: 150,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            if (direction > 0) {
+              swipeToPrev();
+            } else {
+              swipeToNext();
+            }
             pan.setValue({ x: 0, y: 0 });
             cardOpacity.setValue(1);
-          });
-        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          Animated.timing(pan, {
-            toValue: { x: -SCREEN_WIDTH, y: 0 },
-            duration: 200,
-            useNativeDriver: false,
-          }).start(() => {
-            swipeToNext();
-            pan.setValue({ x: 0, y: 0 });
-            cardOpacity.setValue(1);
+            isAnimating.current = false;
           });
         } else {
           Animated.parallel([
             Animated.spring(pan, {
               toValue: { x: 0, y: 0 },
-              useNativeDriver: false,
+              friction: 7,
+              tension: 40,
+              useNativeDriver: true,
             }),
             Animated.timing(cardOpacity, {
               toValue: 1,
               duration: 200,
-              useNativeDriver: false,
+              useNativeDriver: true,
             }),
           ]).start();
         }

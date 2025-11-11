@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReadingProvider } from '@/contexts/reading-context';
 import { ThemeProvider } from '@/contexts/theme-context';
 import { UserProvider } from '@/contexts/user-context';
+import { SettingsProvider } from '@/contexts/settings-context';
 import { trpc, trpcClient } from '@/lib/trpc';
 import supabase from '@/lib/supabase';
 
@@ -87,6 +88,9 @@ function RootLayoutNav() {
       <Stack.Screen name="scan-book" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       <Stack.Screen name="share-card" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="share-profile" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="notifications-settings" options={{ title: 'Notifications' }} />
+      <Stack.Screen name="app-settings" options={{ title: 'App Settings' }} />
+      <Stack.Screen name="help-support" options={{ title: 'Help & Support' }} />
     </Stack>
   );
 }
@@ -100,13 +104,15 @@ export default function RootLayout() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <UserProvider>
-            <ReadingProvider>
-              <GestureHandlerRootView>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </ReadingProvider>
-          </UserProvider>
+          <SettingsProvider>
+            <UserProvider>
+              <ReadingProvider>
+                <GestureHandlerRootView>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </ReadingProvider>
+            </UserProvider>
+          </SettingsProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>

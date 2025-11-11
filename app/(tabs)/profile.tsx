@@ -19,11 +19,25 @@ export default function ProfileScreen() {
   const [editAge, setEditAge] = useState('');
   const [editGender, setEditGender] = useState<'male' | 'female' | 'other' | 'prefer-not-to-say'>('prefer-not-to-say');
 
-  const handlePress = (action: string) => {
+  const handleNavigateToNotifications = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    console.log(`Action: ${action}`);
+    router.push('/notifications-settings');
+  };
+
+  const handleNavigateToSettings = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push('/app-settings');
+  };
+
+  const handleNavigateToHelp = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push('/help-support');
   };
 
   const handleChangeProfilePicture = async () => {
@@ -180,7 +194,7 @@ export default function ProfileScreen() {
           
           <TouchableOpacity
             style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={() => handlePress('notifications')}
+            onPress={handleNavigateToNotifications}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.primary + '15' }]}>
@@ -191,7 +205,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={() => handlePress('settings')}
+            onPress={handleNavigateToSettings}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.success + '15' }]}>
@@ -202,7 +216,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={() => handlePress('help')}
+            onPress={handleNavigateToHelp}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIcon, { backgroundColor: colors.accent + '15' }]}>

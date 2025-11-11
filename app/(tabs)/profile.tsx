@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert } from 'react-native';
-import { Stack } from 'expo-router';
-import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
+import { useUser } from '@/contexts/user-context';
 
 export default function ProfileScreen() {
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const { profile, updateProfile } = useUser();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editAge, setEditAge] = useState('');
+  const [editGender, setEditGender] = useState<'male' | 'female' | 'other' | 'prefer-not-to-say'>('prefer-not-to-say');
 
   const handlePress = (action: string) => {
     if (Platform.OS !== 'web') {
@@ -32,10 +38,35 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
+      updateProfile({ profileImage: result.assets[0].uri });
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+    }
+  };
+
+  const handleOpenEdit = () => {
+    setEditName(profile?.name || '');
+    setEditBio(profile?.bio || '');
+    setEditAge(profile?.age?.toString() || '');
+    setEditGender(profile?.gender || 'prefer-not-to-say');
+    setShowEditModal(true);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    const ageNum = editAge ? parseInt(editAge, 10) : undefined;
+    updateProfile({
+      name: editName.trim() || 'Reading Enthusiast',
+      bio: editBio.trim() || 'Keep up the great reading habit!',
+      age: isNaN(ageNum || 0) ? undefined : ageNum,
+      gender: editGender,
+    });
+    setShowEditModal(false);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
 
@@ -59,8 +90,8 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <TouchableOpacity onPress={handleChangeProfilePicture} activeOpacity={0.8}>
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                {profile?.profileImage ? (
+                  <Image source={{ uri: profile.profileImage }} style={styles.avatarImage} />
                 ) : (
                   <User size={48} color={colors.surface} strokeWidth={2} />
                 )}
@@ -70,8 +101,13 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
           </View>
-          <Text style={[styles.userName, { color: colors.text }]}>Reading Enthusiast</Text>
-          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>Keep up the great reading habit!</Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || 'Reading Enthusiast'}</Text>
+            <TouchableOpacity onPress={handleOpenEdit} activeOpacity={0.7}>
+              <Edit size={20} color={colors.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
         </View>
 
         <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
@@ -189,8 +225,124 @@ export default function ProfileScreen() {
           <Text style={[styles.logoutText, { color: colors.error }]}>Sign Out</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.shareProfileButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            router.push('/share-profile');
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Share2 size={20} color={colors.surface} strokeWidth={2.5} />
+          <Text style={[styles.shareProfileText, { color: colors.surface }]}>Share Profile Card</Text>
+        </TouchableOpacity>
+
         <Text style={[styles.version, { color: colors.textTertiary }]}>Readly Version 1.0.0</Text>
       </ScrollView>
+
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.editModalContent, { backgroundColor: colors.surface }]}>
+            <View style={styles.editModalHeader}>
+              <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)} activeOpacity={0.7}>
+                <X size={24} color={colors.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your name"
+                  placeholderTextColor={colors.textTertiary}
+                  maxLength={50}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Bio</Text>
+                <TextInput
+                  style={[styles.textInput, styles.bioInput, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
+                  value={editBio}
+                  onChangeText={setEditBio}
+                  placeholder="A short bio about yourself"
+                  placeholderTextColor={colors.textTertiary}
+                  multiline
+                  maxLength={150}
+                  numberOfLines={3}
+                />
+                <Text style={[styles.charCount, { color: colors.textTertiary }]}>{editBio.length}/150</Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Age (optional)</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.surfaceSecondary, color: colors.text, borderColor: colors.border }]}
+                  value={editAge}
+                  onChangeText={(text) => {
+                    const num = text.replace(/[^0-9]/g, '');
+                    setEditAge(num);
+                  }}
+                  placeholder="Your age"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Gender (optional)</Text>
+                <View style={styles.genderOptions}>
+                  {[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'other', label: 'Other' }, { value: 'prefer-not-to-say', label: 'Prefer not to say' }].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.genderOption,
+                        { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+                        editGender === option.value && [styles.genderOptionSelected, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]
+                      ]}
+                      onPress={() => setEditGender(option.value as typeof editGender)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.genderOptionText, { color: editGender === option.value ? colors.primary : colors.text }]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.editModalActions}>
+              <TouchableOpacity
+                style={[styles.editModalButton, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={() => setShowEditModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.editModalButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.editModalButtonPrimary, { backgroundColor: colors.primary }]}
+                onPress={handleSaveProfile}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.editModalButtonText, { color: colors.surface }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -380,5 +532,109 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     fontWeight: '500' as const,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  shareProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
+    marginBottom: 24,
+  },
+  shareProfileText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    letterSpacing: -0.2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  editModalContent: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    maxHeight: '85%',
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  editModalTitle: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+  },
+  editForm: {
+    maxHeight: 400,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  textInput: {
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  bioInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    paddingTop: 12,
+  },
+  charCount: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  genderOptions: {
+    gap: 10,
+  },
+  genderOption: {
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+  },
+  genderOptionSelected: {
+    borderWidth: 2,
+  },
+  genderOptionText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  editModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  editModalButton: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+  },
+  editModalButtonPrimary: {
+  },
+  editModalButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

@@ -131,7 +131,7 @@ export default function FocusScreen() {
   <View style={styles.content}>
         <View style={styles.header}>
           <Text style={[styles.greeting, { color: colors.text }]}>Focus</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Begin your reading ritual</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Begin your reading routine</Text>
         </View>
 
   <View style={styles.mainContent}>

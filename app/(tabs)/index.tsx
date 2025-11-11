@@ -7,8 +7,13 @@ import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Book } from '@/types/book';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
+
+const isSmallScreen = SCREEN_WIDTH < 375;
+const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
+const scale = SCREEN_WIDTH / 375;
+const verticalScale = SCREEN_HEIGHT / 667;
 
 export default function FocusScreen() {
   const { currentBooks } = useReading();
@@ -127,14 +132,17 @@ export default function FocusScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: '', headerShown: false }} />
-      
-  <View style={styles.content}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={[styles.greeting, { color: colors.text }]}>Focus</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Begin your reading routine</Text>
         </View>
 
-  <View style={styles.mainContent}>
+        <View style={styles.mainContent}>
           {selectedBook ? (
             <Animated.View 
               {...panResponder.panHandlers}
@@ -233,11 +241,11 @@ export default function FocusScreen() {
           disabled={!selectedBook && currentBooks.length === 0}
         >
           <View style={styles.playIcon}>
-            <Play size={32} color={colors.surface} strokeWidth={2.5} fill={colors.surface} />
+            <Play size={Math.round(28 * scale)} color={colors.surface} strokeWidth={2.5} fill={colors.surface} />
           </View>
           <Text style={[styles.startButtonText, { color: colors.surface }]}>Start Focus Timer</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <Modal
         visible={showBookPicker}
@@ -325,34 +333,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingTop: Math.max(50, 60 * verticalScale),
+    paddingHorizontal: Math.max(16, 24 * scale),
+    paddingBottom: Math.max(30, 40 * verticalScale),
     justifyContent: 'space-between',
   },
   header: {
-    marginBottom: 48,
+    marginBottom: Math.max(24, 32 * verticalScale),
   },
   greeting: {
-    fontSize: 36,
+    fontSize: Math.min(36, Math.max(28, 36 * scale)),
     fontWeight: '800' as const,
     marginBottom: 4,
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: Math.min(17, Math.max(15, 17 * scale)),
     fontWeight: '500' as const,
   },
   mainContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: SCREEN_HEIGHT * 0.4,
   },
   selectedBookCard: {
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: Math.max(20, 28 * scale),
+    padding: Math.max(16, 24 * scale),
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
@@ -363,47 +375,47 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   bookCoverLarge: {
-    width: 140,
-    height: 210,
-    borderRadius: 14,
-    marginBottom: 18,
+    width: Math.max(110, 140 * scale),
+    height: Math.max(165, 210 * scale),
+    borderRadius: Math.max(10, 14 * scale),
+    marginBottom: Math.max(12, 18 * scale),
   },
   bookCoverLargePlaceholder: {
-    width: 140,
-    height: 210,
-    borderRadius: 14,
+    width: Math.max(110, 140 * scale),
+    height: Math.max(165, 210 * scale),
+    borderRadius: Math.max(10, 14 * scale),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: Math.max(12, 18 * scale),
   },
   bookTitleLarge: {
-    fontSize: 22,
+    fontSize: Math.min(22, Math.max(18, 22 * scale)),
     fontWeight: '800' as const,
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   bookAuthorLarge: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Math.max(16, 24 * scale),
     fontWeight: '500' as const,
   },
   progressContainer: {
     width: '100%',
-    gap: 8,
+    gap: Math.max(6, 8 * scale),
   },
   progressBar: {
-    height: 8,
-    borderRadius: 4,
+    height: Math.max(6, 8 * scale),
+    borderRadius: Math.max(3, 4 * scale),
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: Math.max(3, 4 * scale),
   },
   progressText: {
-    fontSize: 13,
+    fontSize: Math.min(13, Math.max(11, 13 * scale)),
     fontWeight: '600' as const,
     textAlign: 'center',
   },
@@ -433,23 +445,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: Math.max(8, 12 * scale),
+    marginTop: Math.max(12, 16 * scale),
     paddingVertical: 10,
     paddingHorizontal: 20,
     alignSelf: 'center',
   },
   changeBookText: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     fontWeight: '600' as const,
   },
   startButton: {
-    borderRadius: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 32,
+    borderRadius: Math.max(18, 24 * scale),
+    paddingVertical: Math.max(16, 20 * scale),
+    paddingHorizontal: Math.max(24, 32 * scale),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: Math.max(8, 12 * scale),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -460,15 +473,15 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   playIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: Math.max(36, 44 * scale),
+    height: Math.max(36, 44 * scale),
+    borderRadius: Math.max(18, 22 * scale),
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   startButtonText: {
-    fontSize: 20,
+    fontSize: Math.min(20, Math.max(17, 20 * scale)),
     fontWeight: '800' as const,
     letterSpacing: -0.3,
   },
@@ -566,22 +579,22 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
   },
   swipeIndicatorContainer: {
-    marginTop: 24,
+    marginTop: Math.max(16, 24 * scale),
     alignItems: 'center',
-    gap: 12,
+    gap: Math.max(8, 12 * scale),
   },
   dotsContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Math.max(6, 8 * scale),
     alignItems: 'center',
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: Math.max(6, 8 * scale),
+    height: Math.max(6, 8 * scale),
+    borderRadius: Math.max(3, 4 * scale),
   },
   swipeHint: {
-    fontSize: 13,
+    fontSize: Math.min(13, Math.max(11, 13 * scale)),
     fontWeight: '500' as const,
   },
 });

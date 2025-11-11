@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X, Play, Pause, Check, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useReading } from '@/contexts/reading-context';
 import ShareDailyCard from '@/components/ShareDailyCard';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const scale = SCREEN_WIDTH / 375;
+const verticalScale = SCREEN_HEIGHT / 667;
 
 export default function FocusSessionScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
@@ -233,11 +237,15 @@ export default function FocusSessionScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <X size={28} color={Colors.light.surface} strokeWidth={2} />
+          <X size={Math.round(28 * scale)} color={Colors.light.surface} strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
           <Text style={styles.bookAuthor}>{book.author}</Text>
@@ -359,7 +367,7 @@ export default function FocusSessionScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </ScrollView>
 
       <Modal
         visible={showShareModal}
@@ -493,32 +501,36 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: Math.max(16, 20 * scale),
+    paddingTop: Math.max(12, 16 * verticalScale),
   },
   closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: Math.max(40, 44 * scale),
+    height: Math.max(40, 44 * scale),
+    borderRadius: Math.max(20, 22 * scale),
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: {
+  scrollView: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    paddingBottom: 60,
+  },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: Math.max(20, 32 * scale),
+    paddingTop: Math.max(20, 40 * verticalScale),
+    paddingBottom: Math.max(40, 60 * verticalScale),
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: SCREEN_HEIGHT * 0.75,
   },
   bookInfo: {
     alignItems: 'center',
     maxWidth: 300,
-    marginTop: -30,
+    marginTop: Math.min(-10, -30 * verticalScale),
   },
   bookTitle: {
-    fontSize: 24,
+    fontSize: Math.min(24, Math.max(20, 24 * scale)),
     fontWeight: '700' as const,
     color: Colors.light.surface,
     textAlign: 'center',
@@ -526,21 +538,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   bookAuthor: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
   },
   modeRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginVertical: 12,
+    gap: Math.max(8, 12 * scale),
+    marginVertical: Math.max(8, 12 * verticalScale),
   },
   modeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: Math.max(6, 8 * scale),
+    paddingHorizontal: Math.max(10, 14 * scale),
+    borderRadius: Math.max(8, 12 * scale),
     backgroundColor: 'rgba(255,255,255,0.06)',
-    minWidth: 120,
+    minWidth: Math.max(100, 120 * scale),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -578,76 +590,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeInput: {
-    width: 64,
-    height: 40,
-    borderRadius: 10,
+    width: Math.max(56, 64 * scale),
+    height: Math.max(36, 40 * scale),
+    borderRadius: Math.max(8, 10 * scale),
     backgroundColor: 'rgba(255,255,255,0.06)',
     color: Colors.light.surface,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     paddingVertical: 0,
     textAlignVertical: 'center',
   },
   setButton: {
     backgroundColor: Colors.light.surface,
-    height: 40,
-    minWidth: 64,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    height: Math.max(36, 40 * scale),
+    minWidth: Math.max(56, 64 * scale),
+    paddingHorizontal: Math.max(10, 12 * scale),
+    borderRadius: Math.max(8, 10 * scale),
     paddingVertical: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
-    marginTop: 20,
+    marginLeft: Math.max(6, 8 * scale),
+    marginTop: Math.max(18, 20 * verticalScale),
   },
   setButtonText: {
     color: Colors.light.primary,
     fontWeight: '700' as const,
-    fontSize: 16,
-    lineHeight: 40,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
+    lineHeight: Math.max(36, 40 * scale),
     textAlign: 'center',
   },
   modesWrapper: {
     width: '100%',
     alignItems: 'center',
     position: 'relative',
-    marginVertical: 6,
-    minHeight: 44,
-    marginTop: -50,
+    marginVertical: Math.max(4, 6 * verticalScale),
+    minHeight: Math.max(40, 44 * verticalScale),
+    marginTop: Math.min(-25, -50 * verticalScale),
   },
   presetsRow: {
     position: 'absolute',
-    top: 57,
+    top: Math.max(50, 57 * verticalScale),
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 10,
+    gap: Math.max(8, 10 * scale),
     zIndex: 20,
-    paddingHorizontal: 6,
+    paddingHorizontal: Math.max(4, 6 * scale),
     paddingVertical: 2,
-    borderRadius: 14,
+    borderRadius: Math.max(10, 14 * scale),
     backgroundColor: 'transparent',
   },
   timerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: Math.min(240, Math.max(180, 240 * scale)),
+    height: Math.min(240, Math.max(180, 240 * scale)),
+    borderRadius: Math.min(120, Math.max(90, 120 * scale)),
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 8,
+    borderWidth: Math.max(6, 8 * scale),
     borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 30,
+    marginTop: Math.max(15, 30 * verticalScale),
   },
   timerText: {
-    fontSize: 56,
+    fontSize: Math.min(56, Math.max(42, 56 * scale)),
     fontWeight: '800' as const,
     color: Colors.light.surface,
     letterSpacing: -2,
   },
   timerLabel: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 8,
+    marginTop: Math.max(6, 8 * scale),
     fontWeight: '600' as const,
   },
   pagesControl: {
@@ -684,9 +696,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: Math.min(12, Math.max(10, 12 * scale)),
     color: Colors.light.textSecondary,
-    marginBottom: 6,
+    marginBottom: Math.max(4, 6 * scale),
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
@@ -753,22 +765,23 @@ const styles = StyleSheet.create({
   },
   controls: {
     width: '100%',
-    gap: 12,
+    gap: Math.max(8, 12 * scale),
+    marginTop: Math.max(12, 20 * verticalScale),
   },
   primaryButton: {
     backgroundColor: Colors.light.surface,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: Math.max(16, 20 * scale),
+    padding: Math.max(16, 20 * scale),
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: Math.max(4, 6 * scale),
   },
   pauseButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   primaryButtonText: {
-    fontSize: 18,
+    fontSize: Math.min(18, Math.max(16, 18 * scale)),
     fontWeight: '700' as const,
     color: Colors.light.primary,
     letterSpacing: -0.3,
@@ -776,17 +789,17 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: Math.max(16, 20 * scale),
+    padding: Math.max(16, 20 * scale),
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: Math.max(4, 6 * scale),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   completeButtonText: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     fontWeight: '700' as const,
     color: Colors.light.surface,
     letterSpacing: -0.2,
@@ -805,24 +818,24 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.light.background,
-    borderRadius: 28,
-    padding: 28,
+    borderRadius: Math.max(20, 28 * scale),
+    padding: Math.max(20, 28 * scale),
     width: '100%',
     maxWidth: 440,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 28,
+    fontSize: Math.min(28, Math.max(24, 28 * scale)),
     fontWeight: '800' as const,
     color: Colors.light.text,
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   modalSubtitle: {
-    fontSize: 15,
+    fontSize: Math.min(15, Math.max(13, 15 * scale)),
     color: Colors.light.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Math.max(16, 24 * scale),
     fontWeight: '500' as const,
   },
   shareCardContainer: {
@@ -835,28 +848,28 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     backgroundColor: Colors.light.primary,
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: Math.max(12, 16 * scale),
+    padding: Math.max(14, 18 * scale),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: Math.max(8, 10 * scale),
   },
   shareButtonText: {
-    fontSize: 17,
+    fontSize: Math.min(17, Math.max(15, 17 * scale)),
     fontWeight: '700' as const,
     color: Colors.light.surface,
     letterSpacing: -0.2,
   },
   skipButton: {
     backgroundColor: Colors.light.surfaceSecondary,
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: Math.max(12, 16 * scale),
+    padding: Math.max(14, 18 * scale),
     alignItems: 'center',
     justifyContent: 'center',
   },
   skipButtonText: {
-    fontSize: 16,
+    fontSize: Math.min(16, Math.max(14, 16 * scale)),
     fontWeight: '700' as const,
     color: Colors.light.textSecondary,
     letterSpacing: -0.2,

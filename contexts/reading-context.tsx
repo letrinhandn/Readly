@@ -8,6 +8,78 @@ import { Book, ReadingSession, ReadingStats } from '@/types/book';
 const BOOKS_KEY = 'reading_ritual_books';
 const SESSIONS_KEY = 'reading_ritual_sessions';
 
+interface BookDB {
+  id: string;
+  title: string;
+  author: string;
+  cover_url?: string;
+  thumbnail?: string;
+  isbn?: string;
+  isbn13?: string;
+  description?: string;
+  published_date?: string;
+  publisher?: string;
+  categories?: string[];
+  language?: string;
+  page_count?: number;
+  total_pages: number;
+  current_page: number;
+  started_at: string;
+  last_read_at?: string;
+  status: string;
+  google_books_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function dbToBook(db: BookDB): Book {
+  return {
+    id: db.id,
+    title: db.title,
+    author: db.author,
+    coverUrl: db.cover_url,
+    thumbnail: db.thumbnail,
+    isbn: db.isbn,
+    isbn13: db.isbn13,
+    description: db.description,
+    publishedDate: db.published_date,
+    publisher: db.publisher,
+    categories: db.categories,
+    language: db.language,
+    pageCount: db.page_count,
+    totalPages: db.total_pages,
+    currentPage: db.current_page,
+    startedAt: db.started_at,
+    lastReadAt: db.last_read_at,
+    status: db.status as 'reading' | 'completed' | 'paused',
+    googleBooksId: db.google_books_id,
+  };
+}
+
+function bookToDb(book: Book): BookDB {
+  return {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    cover_url: book.coverUrl,
+    thumbnail: book.thumbnail,
+    isbn: book.isbn,
+    isbn13: book.isbn13,
+    description: book.description,
+    published_date: book.publishedDate,
+    publisher: book.publisher,
+    categories: book.categories,
+    language: book.language,
+    page_count: book.pageCount,
+    total_pages: book.totalPages,
+    current_page: book.currentPage,
+    started_at: book.startedAt,
+    last_read_at: book.lastReadAt,
+    status: book.status,
+    google_books_id: book.googleBooksId,
+  };
+}
+
 export const [ReadingProvider, useReading] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -18,9 +90,12 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       try {
         const { data, error } = await supabase.from('books').select('*');
         if (error) throw error;
-        if (data && Array.isArray(data)) return (data as Book[]);
+        if (data && Array.isArray(data)) {
+          console.log('Books loaded from Supabase:', data.length);
+          return data.map(dbToBook);
+        }
       } catch (e) {
-        // fallback to AsyncStorage
+        console.log('Falling back to AsyncStorage for books:', e);
         const stored = await AsyncStorage.getItem(BOOKS_KEY);
         return stored ? (JSON.parse(stored) as Book[]) : [];
       }
@@ -62,11 +137,15 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   const saveBooksM = useMutation({
     mutationFn: async (books: Book[]) => {
       try {
-        // try upsert to supabase
-        const { error } = await supabase.from('books').upsert(books);
-        if (error) throw error;
+        const dbBooks = books.map(bookToDb);
+        const { error } = await supabase.from('books').upsert(dbBooks);
+        if (error) {
+          console.log('Error saving books to Supabase:', error);
+          throw error;
+        }
+        console.log('Books saved to Supabase successfully:', books.length);
       } catch (e) {
-        // fallback to AsyncStorage
+        console.log('Falling back to AsyncStorage for saving books:', e);
         await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
       }
       return books;

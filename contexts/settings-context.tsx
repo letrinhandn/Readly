@@ -85,8 +85,9 @@ export const [SettingsProvider, useSettings] = createContextHook(() => {
       console.log('Settings saved successfully');
       return settings;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appSettings'] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['appSettings'], data);
+      console.log('Settings cache updated');
     },
   });
   const { mutate: saveSettings } = saveSettingsM;

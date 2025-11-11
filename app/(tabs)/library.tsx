@@ -283,7 +283,7 @@ export default function LibraryScreen() {
                   onPress={() => handleBookPress(book)}
                   activeOpacity={0.8}
                 >
-                  {book.thumbnail || book.coverUrl ? (
+                  {(book.thumbnail && book.thumbnail.length > 0) || (book.coverUrl && book.coverUrl.length > 0) ? (
                     <Image
                       source={{ uri: book.coverUrl || book.thumbnail }}
                       style={[styles.bookCover, { width: bookWidth, height: bookWidth * 1.5 }]}
@@ -471,8 +471,8 @@ export default function LibraryScreen() {
                                 onPress={() => handleSelectModalGoogleBook(book)}
                                 activeOpacity={0.7}
                               >
-                                {book.volumeInfo.imageLinks?.thumbnail && (
-                                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail }} style={styles.modalBookCover} />
+                                {book.volumeInfo.imageLinks?.thumbnail && book.volumeInfo.imageLinks.thumbnail.length > 0 && (
+                                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail }} style={styles.modalBookCover} resizeMode="cover" />
                                 )}
                                 <View style={styles.modalBookInfo}>
                                   <Text style={[styles.modalBookTitle, { color: colors.text }]} numberOfLines={2}>{book.volumeInfo.title}</Text>

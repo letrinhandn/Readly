@@ -147,7 +147,7 @@ export default function FocusScreen() {
                 },
               ]}
             >
-              {selectedBook.thumbnail ? (
+              {selectedBook.thumbnail && selectedBook.thumbnail.length > 0 ? (
                 <Image 
                   source={{ uri: selectedBook.thumbnail }} 
                   style={styles.bookCoverLarge}
@@ -290,8 +290,8 @@ export default function FocusScreen() {
                   onPress={() => handleSelectBook(book)}
                   activeOpacity={0.7}
                 >
-                  {book.thumbnail ? (
-                    <Image source={{ uri: book.thumbnail }} style={styles.bookPickerCover} />
+                  {book.thumbnail && book.thumbnail.length > 0 ? (
+                    <Image source={{ uri: book.thumbnail }} style={styles.bookPickerCover} resizeMode="cover" />
                   ) : (
                     <View style={[styles.bookPickerCoverPlaceholder, { backgroundColor: colors.surface }]}>
                       <BookOpen size={24} color={colors.primary} strokeWidth={1.5} />

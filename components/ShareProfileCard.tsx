@@ -25,7 +25,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
           <View style={styles.headerTop}>
             <View style={styles.profileSection}>
               <View style={[styles.avatarContainer, { backgroundColor: colors.surface }]}>
-                {profile.profileImage ? (
+                {profile.profileImage && profile.profileImage.length > 0 ? (
                   <Image
                     source={{ uri: profile.profileImage }}
                     style={styles.avatarImage}
@@ -108,7 +108,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
               <View style={styles.booksGrid}>
                 {completedBooks.slice(0, 6).map((book) => (
                   <View key={book.id} style={[styles.bookCover, { backgroundColor: colors.surfaceSecondary }]}>
-                    {book.coverUrl || book.thumbnail ? (
+                    {(book.coverUrl && book.coverUrl.length > 0) || (book.thumbnail && book.thumbnail.length > 0) ? (
                       <Image
                         source={{ uri: book.coverUrl || book.thumbnail }}
                         style={styles.bookCoverImage}

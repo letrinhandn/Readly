@@ -35,7 +35,7 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
       <View style={styles.content}>
         <View style={styles.bookSection}>
           <View style={styles.bookHeader}>
-            {book.coverUrl || book.thumbnail ? (
+            {(book.coverUrl && book.coverUrl.length > 0) || (book.thumbnail && book.thumbnail.length > 0) ? (
               <Image 
                 source={{ uri: book.coverUrl || book.thumbnail }} 
                 style={styles.coverImage}

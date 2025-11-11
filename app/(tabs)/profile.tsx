@@ -91,8 +91,8 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <TouchableOpacity onPress={handleChangeProfilePicture} activeOpacity={0.8}>
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                {profile?.profileImage ? (
-                  <Image source={{ uri: profile.profileImage }} style={styles.avatarImage} />
+                {profile?.profileImage && profile.profileImage.length > 0 ? (
+                  <Image source={{ uri: profile.profileImage }} style={styles.avatarImage} resizeMode="cover" />
                 ) : (
                   <User size={48} color={colors.surface} strokeWidth={2} />
                 )}

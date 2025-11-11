@@ -282,7 +282,7 @@ export default function BookDetailScreen() {
                     </View>
 
                     <View style={styles.threadContent}>
-                      <View style={[styles.sessionHeader, { marginBottom: 8 }]}> 
+                      <View style={[styles.sessionHeader, { marginBottom: 8 }]}>
                         <View style={styles.sessionTime}>
                           <Clock size={14} color={colors.textTertiary} strokeWidth={2} />
                           <Text style={[styles.sessionTimeText, { color: colors.textSecondary }]}>{formatTime(session.startTime)}</Text>
@@ -297,7 +297,7 @@ export default function BookDetailScreen() {
                       </Text>
 
                       {session.reflection ? (
-                        <View style={[styles.reflectionBubble, { backgroundColor: colors.surface }]}> 
+                        <View style={[styles.reflectionBubble, { backgroundColor: colors.surface }]}>
                           <Text style={[styles.sessionReflection, { color: colors.text }]}>{session.reflection}</Text>
                           <Text style={[styles.reflectionMeta, { color: colors.textSecondary }]}>{formatTime(session.startTime)}</Text>
                         </View>

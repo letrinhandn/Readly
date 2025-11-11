@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Mindful Reading Ritual",
-    "slug": "mindful-reading-ritual",
+    "name": "readly-app",
+    "slug": "readly-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.mindful-reading-ritual",
+      "bundleIdentifier": "app.rork.readly",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.mindful_reading_ritual",
+      "package": "app.rork.readly",
       "permissions": [
         "android.permission.VIBRATE",
         "CAMERA",

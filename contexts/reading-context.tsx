@@ -32,10 +32,26 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     queryKey: ['sessions'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('sessions').select('*');
+        const { data, error } = await supabase.from('reading_sessions').select('*');
         if (error) throw error;
-        if (data && Array.isArray(data)) return (data as ReadingSession[]);
+        if (data && Array.isArray(data)) {
+          return (data as any[]).map(session => ({
+            id: session.id,
+            bookId: session.book_id,
+            userId: session.user_id,
+            startTime: session.start_time,
+            endTime: session.end_time,
+            pagesRead: session.pages_read,
+            duration: session.duration,
+            reflection: session.reflection,
+            mood: session.mood,
+            location: session.location,
+            createdAt: session.created_at,
+            updatedAt: session.updated_at,
+          } as ReadingSession));
+        }
       } catch (e) {
+        console.log('Falling back to AsyncStorage for sessions:', e);
         const stored = await AsyncStorage.getItem(SESSIONS_KEY);
         return stored ? (JSON.parse(stored) as ReadingSession[]) : [];
       }
@@ -64,9 +80,22 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   const saveSessionsM = useMutation({
     mutationFn: async (sessions: ReadingSession[]) => {
       try {
-        const { error } = await supabase.from('sessions').upsert(sessions);
+        const sessionsData = sessions.map(s => ({
+          id: s.id,
+          book_id: s.bookId,
+          user_id: s.userId,
+          start_time: s.startTime,
+          end_time: s.endTime,
+          pages_read: s.pagesRead,
+          duration: s.duration,
+          reflection: s.reflection,
+          mood: s.mood,
+          location: s.location,
+        }));
+        const { error } = await supabase.from('reading_sessions').upsert(sessionsData);
         if (error) throw error;
       } catch (e) {
+        console.log('Falling back to AsyncStorage for saving sessions:', e);
         await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
       }
       return sessions;

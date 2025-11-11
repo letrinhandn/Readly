@@ -48,11 +48,16 @@ export interface GoogleBook {
 export interface ReadingSession {
   id: string;
   bookId: string;
+  userId?: string;
   startTime: string;
   endTime?: string;
   pagesRead: number;
   duration: number;
   reflection?: string;
+  mood?: 'excited' | 'calm' | 'thoughtful' | 'inspired' | 'tired';
+  location?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ReadingStats {

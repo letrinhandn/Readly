@@ -221,10 +221,21 @@ export default function ProfileScreen() {
                 text: 'Sign Out', 
                 style: 'destructive', 
                 onPress: async () => {
-                  await supabase.auth.signOut();
-                  router.replace('/login');
-                  if (Platform.OS !== 'web') {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  try {
+                    console.log('Signing out...');
+                    if (Platform.OS !== 'web') {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                    const { error } = await supabase.auth.signOut();
+                    if (error) {
+                      console.error('Sign out error:', error);
+                      Alert.alert('Error', 'Failed to sign out. Please try again.');
+                    } else {
+                      console.log('Sign out successful');
+                    }
+                  } catch (err) {
+                    console.error('Sign out exception:', err);
+                    Alert.alert('Error', 'Failed to sign out. Please try again.');
                   }
                 }
               }

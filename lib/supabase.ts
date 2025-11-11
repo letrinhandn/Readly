@@ -19,12 +19,15 @@ const SUPABASE_URL = getEnv('SUPABASE_URL') || getEnv('SUPABASE_PUBLIC_URL') || 
 const SUPABASE_ANON_KEY = getEnv('SUPABASE_ANON_KEY') || getEnv('SUPABASE_PUBLIC_ANON_KEY') || '';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  // eslint-disable-next-line no-console
-  console.warn('Supabase URL or ANON key missing. Check your environment variables.');
+  console.warn('Supabase URL or ANON key missing. Using placeholder values.');
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
-});
+export const supabase = createClient(
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_ANON_KEY || 'placeholder-anon-key',
+  {
+    auth: { persistSession: false },
+  }
+);
 
 export default supabase;

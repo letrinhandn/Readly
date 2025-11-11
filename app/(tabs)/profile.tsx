@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useUser } from '@/contexts/user-context';
+import supabase from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { stats, books } = useReading();
@@ -216,7 +217,17 @@ export default function ProfileScreen() {
           onPress={() => {
             Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
               { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign Out', style: 'destructive', onPress: () => handlePress('logout') }
+              { 
+                text: 'Sign Out', 
+                style: 'destructive', 
+                onPress: async () => {
+                  await supabase.auth.signOut();
+                  router.replace('/login');
+                  if (Platform.OS !== 'web') {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                }
+              }
             ]);
           }}
           activeOpacity={0.7}

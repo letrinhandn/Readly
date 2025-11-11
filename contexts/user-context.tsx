@@ -14,7 +14,15 @@ export const [UserProvider, useUser] = createContextHook(() => {
     queryKey: ['userProfile'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('user_profiles').select('*').single();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('No authenticated user');
+
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
         if (error) throw error;
         if (data) return data as UserProfile;
       } catch {

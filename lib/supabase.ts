@@ -1,34 +1,19 @@
-import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 
-const getEnv = (key: string) => {
-  // prefer process.env, fallback to Expo constants if available
-  // NOTE: ensure you expose env vars via app.config or eas build if needed
-  // try common names used in .env
-  return (
-    (process.env as any)[key] ||
-    (process.env as any)[`REACT_APP_${key}`] ||
-    (process.env as any)[`EXPO_${key}`] ||
-    // @ts-ignore
-    Constants.expoConfig?.extra?.[key] ||
-    (process.env as any)[key]
-  );
-};
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://xvnhanwektoejkgpzybt.supabase.co';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2bmhhbndla3RvZWprZ3B6eWJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NzE2MjgsImV4cCI6MjA3ODQ0NzYyOH0.o-jQ3kmMtRNO_CMj0oHqhe5CSlMJv4CyrzDIRmFBGZs';
 
-const SUPABASE_URL = getEnv('SUPABASE_URL') || getEnv('SUPABASE_PUBLIC_URL') || '';
-const SUPABASE_ANON_KEY = getEnv('SUPABASE_ANON_KEY') || getEnv('SUPABASE_PUBLIC_ANON_KEY') || '';
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('Supabase URL or ANON key missing. Using placeholder values.');
-}
+console.log('Supabase URL:', SUPABASE_URL);
+console.log('Supabase Key exists:', !!SUPABASE_ANON_KEY);
 
 export const supabase = createClient(
-  SUPABASE_URL || 'https://placeholder.supabase.co',
-  SUPABASE_ANON_KEY || 'placeholder-anon-key',
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: false,
     },
   }
 );

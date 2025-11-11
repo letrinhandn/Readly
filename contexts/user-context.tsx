@@ -14,8 +14,17 @@ export const [UserProvider, useUser] = createContextHook(() => {
     queryKey: ['userProfile'],
     queryFn: async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('No authenticated user');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.log('Auth error getting user:', userError.message);
+          throw userError;
+        }
+        
+        if (!user) {
+          console.log('No authenticated user found');
+          throw new Error('No authenticated user');
+        }
 
         const { data, error } = await supabase
           .from('user_profiles')
@@ -23,12 +32,25 @@ export const [UserProvider, useUser] = createContextHook(() => {
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
-        if (data) return data as UserProfile;
-      } catch {
+        if (error) {
+          console.log('Error fetching profile from Supabase:', error.message);
+          throw error;
+        }
+        
+        if (data) {
+          console.log('Profile loaded from Supabase:', data.name);
+          return data as UserProfile;
+        }
+      } catch (err) {
+        console.log('Failed to load from Supabase, trying AsyncStorage:', err);
         const stored = await AsyncStorage.getItem(USER_PROFILE_KEY);
-        if (stored) return JSON.parse(stored) as UserProfile;
+        if (stored) {
+          console.log('Profile loaded from AsyncStorage');
+          return JSON.parse(stored) as UserProfile;
+        }
       }
+      
+      console.log('Using default profile');
       const defaultProfile: UserProfile = {
         id: Date.now().toString(),
         name: 'Reading Enthusiast',
@@ -39,14 +61,21 @@ export const [UserProvider, useUser] = createContextHook(() => {
       };
       return defaultProfile;
     },
+    retry: 1,
+    retryDelay: 500,
   });
 
   const saveProfileM = useMutation({
     mutationFn: async (profile: UserProfile) => {
       try {
         const { error } = await supabase.from('user_profiles').upsert(profile);
-        if (error) throw error;
-      } catch {
+        if (error) {
+          console.log('Error saving to Supabase:', error.message);
+          throw error;
+        }
+        console.log('Profile saved to Supabase successfully');
+      } catch (err) {
+        console.log('Saving to AsyncStorage instead:', err);
         await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
       }
       return profile;

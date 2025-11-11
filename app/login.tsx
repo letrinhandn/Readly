@@ -43,6 +43,7 @@ export default function LoginScreen() {
 
     try {
       if (isSignUp) {
+        console.log('Attempting to sign up...');
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -53,10 +54,16 @@ export default function LoginScreen() {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Sign up error:', error);
+          throw error;
+        }
+
+        console.log('Sign up successful:', data.user?.id);
 
         if (data.user) {
-          await supabase.from('user_profiles').insert({
+          console.log('Creating user profile...');
+          const { error: profileError } = await supabase.from('user_profiles').insert({
             id: data.user.id,
             name: name || 'Reader',
             bio: 'Keep up the great reading habit!',
@@ -64,23 +71,34 @@ export default function LoginScreen() {
             updatedAt: new Date().toISOString(),
           });
 
-          Alert.alert('Success', 'Account created! Please check your email to verify your account.', [
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+          } else {
+            console.log('Profile created successfully');
+          }
+
+          Alert.alert('Success', 'Account created! You can now sign in.', [
             { text: 'OK', onPress: () => setIsSignUp(false) },
           ]);
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Attempting to sign in...');
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Sign in error:', error);
+          throw error;
+        }
 
+        console.log('Sign in successful:', data.user?.id);
         router.replace('/(tabs)');
       }
     } catch (error: any) {
       console.error('Auth error:', error);
-      Alert.alert('Error', error.message || 'Authentication failed');
+      Alert.alert('Error', error.message || 'Authentication failed. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

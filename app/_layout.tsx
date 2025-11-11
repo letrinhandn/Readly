@@ -20,13 +20,28 @@ function RootLayoutNav() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+      try {
+        console.log('Checking authentication...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth session error:', error);
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        console.log('Session status:', !!session);
+        setIsAuthenticated(!!session);
+      } catch (err) {
+        console.error('Failed to check auth:', err);
+        setIsAuthenticated(false);
+      }
     };
 
     checkAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', _event, !!session);
       setIsAuthenticated(!!session);
     });
 

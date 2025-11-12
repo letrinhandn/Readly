@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- Books Table
 CREATE TABLE IF NOT EXISTS books (
   id TEXT PRIMARY KEY,
-  user_id TEXT,
   title TEXT NOT NULL,
   author TEXT NOT NULL,
   cover_url TEXT,
@@ -72,7 +71,6 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_book_id ON reading_sessions(book_id);
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_user_id ON reading_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_end_time ON reading_sessions(end_time);
-CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id);
 CREATE INDEX IF NOT EXISTS idx_books_status ON books(status);
 CREATE INDEX IF NOT EXISTS idx_books_last_read_at ON books(last_read_at);
 

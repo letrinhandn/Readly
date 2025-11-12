@@ -285,10 +285,9 @@ export default function LibraryScreen() {
                 >
                   {(book.thumbnail && book.thumbnail.length > 0) || (book.coverUrl && book.coverUrl.length > 0) ? (
                     <Image
-                      source={{ uri: (book.coverUrl || book.thumbnail || '').replace('http:', 'https:') }}
+                      source={{ uri: book.coverUrl || book.thumbnail }}
                       style={[styles.bookCover, { width: bookWidth, height: bookWidth * 1.5 }]}
                       resizeMode="cover"
-                      defaultSource={undefined}
                     />
                   ) : (
                     <View style={[styles.bookCoverPlaceholder, { backgroundColor: colors.primary + '30', width: bookWidth, height: bookWidth * 1.5 }]}>

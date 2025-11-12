@@ -4,14 +4,12 @@ import { Stack, router } from 'expo-router';
 import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useQueryClient } from '@tanstack/react-query';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useUser } from '@/contexts/user-context';
 import supabase from '@/lib/supabase';
 
 export default function ProfileScreen() {
-  const queryClient = useQueryClient();
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
   const { profile, updateProfile } = useUser();
@@ -224,19 +222,13 @@ export default function ProfileScreen() {
                     if (Platform.OS !== 'web') {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     }
-                    
                     const { error } = await supabase.auth.signOut();
                     if (error) {
                       console.error('Sign out error:', error);
                       Alert.alert('Error', 'Failed to sign out. Please try again.');
-                      return;
+                    } else {
+                      console.log('Sign out successful');
                     }
-                    
-                    console.log('Sign out successful, clearing cache...');
-                    queryClient.clear();
-                    
-                    console.log('Navigating to login...');
-                    router.replace('/login');
                   } catch (err) {
                     console.error('Sign out exception:', err);
                     Alert.alert('Error', 'Failed to sign out. Please try again.');

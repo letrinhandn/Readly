@@ -10,16 +10,12 @@ export default publicProcedure
     bookId: z.string().optional(),
     limit: z.number().optional(),
   }))
-  .query(async ({ input, ctx }) => {
+  .query(async ({ input }) => {
     try {
       let query = supabase
         .from('reading_sessions')
         .select('*')
         .order('end_time', { ascending: false });
-
-      if (ctx.userId) {
-        query = query.eq('user_id', ctx.userId);
-      }
 
       if (input.bookId) {
         query = query.eq('book_id', input.bookId);

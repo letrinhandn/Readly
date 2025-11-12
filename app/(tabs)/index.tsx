@@ -8,7 +8,8 @@ import { useTheme } from '@/contexts/theme-context';
 import { Book } from '@/types/book';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 120;
+const SWIPE_THRESHOLD = 80;
+const VELOCITY_THRESHOLD = 0.3;
 
 const isSmallScreen = SCREEN_WIDTH < 375;
 const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
@@ -47,36 +48,39 @@ export default function FocusScreen() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !isAnimating.current,
+      onStartShouldSetPanResponder: () => !isAnimating.current && currentBooks.length > 1,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return !isAnimating.current && Math.abs(gestureState.dx) > 5;
+        return !isAnimating.current && Math.abs(gestureState.dx) > 3 && currentBooks.length > 1;
       },
       onPanResponderMove: (_, gestureState) => {
         if (isAnimating.current) return;
         pan.setValue({ x: gestureState.dx, y: 0 });
-        const opacity = 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH * 0.8);
-        cardOpacity.setValue(Math.max(0.6, opacity));
+        const opacity = 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH * 1.2);
+        cardOpacity.setValue(Math.max(0.5, opacity));
       },
       onPanResponderRelease: (_, gestureState) => {
         if (isAnimating.current) return;
         
         const velocity = Math.abs(gestureState.vx);
-        const shouldSwipe = Math.abs(gestureState.dx) > SWIPE_THRESHOLD || velocity > 0.5;
+        const distance = Math.abs(gestureState.dx);
+        const shouldSwipe = distance > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD;
         
         if (shouldSwipe) {
           isAnimating.current = true;
           const direction = gestureState.dx > 0 ? 1 : -1;
-          const toValue = direction * SCREEN_WIDTH * 1.2;
+          const toValue = direction * SCREEN_WIDTH * 1.5;
+          
+          const animationDuration = velocity > 1 ? 180 : 250;
           
           Animated.parallel([
             Animated.timing(pan, {
               toValue: { x: toValue, y: 0 },
-              duration: 150,
+              duration: animationDuration,
               useNativeDriver: true,
             }),
             Animated.timing(cardOpacity, {
               toValue: 0,
-              duration: 150,
+              duration: animationDuration,
               useNativeDriver: true,
             }),
           ]).start(() => {
@@ -93,13 +97,14 @@ export default function FocusScreen() {
           Animated.parallel([
             Animated.spring(pan, {
               toValue: { x: 0, y: 0 },
-              friction: 7,
-              tension: 40,
+              friction: 8,
+              tension: 50,
               useNativeDriver: true,
             }),
-            Animated.timing(cardOpacity, {
+            Animated.spring(cardOpacity, {
               toValue: 1,
-              duration: 200,
+              friction: 8,
+              tension: 50,
               useNativeDriver: true,
             }),
           ]).start();

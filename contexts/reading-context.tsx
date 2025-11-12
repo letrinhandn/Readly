@@ -10,6 +10,7 @@ const SESSIONS_KEY = 'reading_ritual_sessions';
 
 interface BookDB {
   id: string;
+  user_id: string;
   title: string;
   author: string;
   cover_url?: string;
@@ -35,6 +36,7 @@ interface BookDB {
 function dbToBook(db: BookDB): Book {
   return {
     id: db.id,
+    userId: db.user_id,
     title: db.title,
     author: db.author,
     coverUrl: db.cover_url,
@@ -59,6 +61,7 @@ function dbToBook(db: BookDB): Book {
 function bookToDb(book: Book): BookDB {
   return {
     id: book.id,
+    user_id: book.userId,
     title: book.title,
     author: book.author,
     cover_url: book.coverUrl,
@@ -88,7 +91,17 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     queryKey: ['books'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('books').select('*');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.log('No authenticated user for books');
+          const stored = await AsyncStorage.getItem(BOOKS_KEY);
+          return stored ? (JSON.parse(stored) as Book[]) : [];
+        }
+
+        const { data, error } = await supabase
+          .from('books')
+          .select('*')
+          .eq('user_id', user.id);
         if (error) throw error;
         if (data && Array.isArray(data)) {
           console.log('Books loaded from Supabase:', data.length);
@@ -107,7 +120,17 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     queryKey: ['sessions'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('reading_sessions').select('*');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.log('No authenticated user for sessions');
+          const stored = await AsyncStorage.getItem(SESSIONS_KEY);
+          return stored ? (JSON.parse(stored) as ReadingSession[]) : [];
+        }
+
+        const { data, error } = await supabase
+          .from('reading_sessions')
+          .select('*')
+          .eq('user_id', user.id);
         if (error) throw error;
         if (data && Array.isArray(data)) {
           return (data as any[]).map(session => ({
@@ -185,11 +208,18 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   });
   const { mutate: saveSessions } = saveSessionsM;
 
-  const addBook = useCallback((book: Omit<Book, 'id'>) => {
+  const addBook = useCallback(async (book: Omit<Book, 'id' | 'userId'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('Cannot add book: No authenticated user');
+      return;
+    }
+
     const books = booksQuery.data ?? [];
     const newBook: Book = {
       ...book,
       id: Date.now().toString(),
+      userId: user.id,
     };
     saveBooks([...books, newBook]);
   }, [booksQuery.data, saveBooks]);
@@ -208,26 +238,31 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     saveBooks(filtered);
   }, [booksQuery.data, saveBooks]);
 
-  const startReadingSession = useCallback((bookId: string) => {
+  const startReadingSession = useCallback(async (bookId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('Cannot start session: No authenticated user');
+      return '';
+    }
+
     const sessionId = Date.now().toString();
     const newSession: ReadingSession = {
       id: sessionId,
       bookId,
+      userId: user.id,
       startTime: new Date().toISOString(),
       pagesRead: 0,
       duration: 0,
     };
     const sessions = sessionsQuery.data ?? [];
     const updated = [...sessions, newSession];
-    // update the query cache immediately so other callers (endReadingSession) see the session
     queryClient.setQueryData(['sessions'], updated);
-    // persist in Supabase (background) with fallback to AsyncStorage
     saveSessionsM.mutateAsync(updated).catch((e) => {
       console.error('Failed to save sessions on start:', e);
     });
     setCurrentSessionId(sessionId);
     return sessionId;
-  }, [sessionsQuery.data, saveSessions]);
+  }, [sessionsQuery.data, queryClient, saveSessionsM]);
 
   const endReadingSession = useCallback(async (sessionId: string, pagesRead: number, reflection?: string, fallbackBookId?: string) => {
     const sessions = sessionsQuery.data ?? [];
@@ -236,9 +271,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     const endTime = new Date();
 
     if (!session) {
-      // fallback: create a minimal session record if we don't have the original (start may not have been persisted)
       if (!fallbackBookId) {
-        // nothing we can do without a book id
         return;
       }
       const startTime = new Date();
@@ -255,7 +288,6 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
 
     const updatedSessions = [...sessions, newSession];
     await saveSessionsM.mutateAsync(updatedSessions);
-    // ensure queries are fresh so UI reflects the newly saved session immediately
     queryClient.invalidateQueries({ queryKey: ['sessions'] });
 
       const books = booksQuery.data ?? [];
@@ -280,9 +312,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
         ? { ...s, endTime: endTime.toISOString(), pagesRead, duration, reflection }
         : s
     );
-  // use mutateAsync so callers can await persistence before navigating away
   await saveSessionsM.mutateAsync(updatedSessions);
-  // explicitly invalidate to make sure consumers read the latest data
   queryClient.invalidateQueries({ queryKey: ['sessions'] });
 
     const books = booksQuery.data ?? [];
@@ -296,7 +326,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     }
 
     setCurrentSessionId(null);
-  }, [sessionsQuery.data, booksQuery.data, saveSessionsM, updateBook]);
+  }, [sessionsQuery.data, booksQuery.data, saveSessionsM, updateBook, queryClient]);
 
   const stats: ReadingStats = useMemo(() => {
     const books = booksQuery.data ?? [];

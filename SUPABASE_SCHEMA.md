@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- Books Table
 CREATE TABLE IF NOT EXISTS books (
   id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
   title TEXT NOT NULL,
   author TEXT NOT NULL,
   cover_url TEXT,
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
 );
 
 -- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id);
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_book_id ON reading_sessions(book_id);
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_user_id ON reading_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_reading_sessions_end_time ON reading_sessions(end_time);
@@ -82,10 +84,24 @@ ALTER TABLE reading_sessions ENABLE ROW LEVEL SECURITY;
 -- Create policies for public access (since we're using anon key)
 -- In production, you'd want proper authentication-based policies
 
--- Allow all operations for now (you can restrict this based on your auth setup)
-CREATE POLICY "Allow all operations on user_profiles" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on books" ON books FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on reading_sessions" ON reading_sessions FOR ALL USING (true) WITH CHECK (true);
+-- RLS Policies for user-specific data
+-- User profiles: users can only see/edit their own profile
+CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT USING (auth.uid()::TEXT = id);
+CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid()::TEXT = id);
+CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid()::TEXT = id);
+CREATE POLICY "Users can delete own profile" ON user_profiles FOR DELETE USING (auth.uid()::TEXT = id);
+
+-- Books: users can only see/edit their own books
+CREATE POLICY "Users can view own books" ON books FOR SELECT USING (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can insert own books" ON books FOR INSERT WITH CHECK (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can update own books" ON books FOR UPDATE USING (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can delete own books" ON books FOR DELETE USING (auth.uid()::TEXT = user_id);
+
+-- Reading sessions: users can only see/edit their own sessions
+CREATE POLICY "Users can view own sessions" ON reading_sessions FOR SELECT USING (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can insert own sessions" ON reading_sessions FOR INSERT WITH CHECK (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can update own sessions" ON reading_sessions FOR UPDATE USING (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can delete own sessions" ON reading_sessions FOR DELETE USING (auth.uid()::TEXT = user_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

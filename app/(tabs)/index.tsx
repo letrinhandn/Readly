@@ -8,8 +8,8 @@ import { useTheme } from '@/contexts/theme-context';
 import { Book } from '@/types/book';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 80;
-const VELOCITY_THRESHOLD = 0.3;
+const SWIPE_THRESHOLD = 40;
+const VELOCITY_THRESHOLD = 0.2;
 
 const isSmallScreen = SCREEN_WIDTH < 375;
 const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
@@ -48,67 +48,96 @@ export default function FocusScreen() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !isAnimating.current && currentBooks.length > 1,
+      onStartShouldSetPanResponder: () => currentBooks.length > 1,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return !isAnimating.current && Math.abs(gestureState.dx) > 3 && currentBooks.length > 1;
+        if (currentBooks.length <= 1) return false;
+        return Math.abs(gestureState.dx) > 2;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({ x: pan.x._value, y: 0 });
+        pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: (_, gestureState) => {
-        if (isAnimating.current) return;
+        if (currentBooks.length <= 1) return;
         pan.setValue({ x: gestureState.dx, y: 0 });
-        const opacity = 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH * 1.2);
-        cardOpacity.setValue(Math.max(0.5, opacity));
+        const normalizedDistance = Math.min(Math.abs(gestureState.dx) / SCREEN_WIDTH, 1);
+        const newOpacity = 1 - normalizedDistance * 0.4;
+        cardOpacity.setValue(Math.max(0.6, newOpacity));
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (isAnimating.current) return;
+        if (currentBooks.length <= 1) {
+          pan.flattenOffset();
+          return;
+        }
         
-        const velocity = Math.abs(gestureState.vx);
-        const distance = Math.abs(gestureState.dx);
-        const shouldSwipe = distance > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD;
+        const velocity = gestureState.vx;
+        const distance = gestureState.dx;
         
-        if (shouldSwipe) {
-          isAnimating.current = true;
-          const direction = gestureState.dx > 0 ? 1 : -1;
-          const toValue = direction * SCREEN_WIDTH * 1.5;
+        const shouldSwipeByDistance = Math.abs(distance) > SWIPE_THRESHOLD;
+        const shouldSwipeByVelocity = Math.abs(velocity) > VELOCITY_THRESHOLD;
+        
+        if (shouldSwipeByDistance || shouldSwipeByVelocity) {
+          const direction = distance > 0 ? 1 : -1;
+          const targetX = direction * SCREEN_WIDTH * 1.2;
           
-          const animationDuration = velocity > 1 ? 180 : 250;
+          const duration = shouldSwipeByVelocity ? 150 : 200;
           
           Animated.parallel([
             Animated.timing(pan, {
-              toValue: { x: toValue, y: 0 },
-              duration: animationDuration,
+              toValue: { x: targetX, y: 0 },
+              duration: duration,
               useNativeDriver: true,
             }),
             Animated.timing(cardOpacity, {
               toValue: 0,
-              duration: animationDuration,
+              duration: duration,
               useNativeDriver: true,
             }),
           ]).start(() => {
+            pan.setValue({ x: 0, y: 0 });
+            cardOpacity.setValue(1);
+            
             if (direction > 0) {
               swipeToPrev();
             } else {
               swipeToNext();
             }
-            pan.setValue({ x: 0, y: 0 });
-            cardOpacity.setValue(1);
-            isAnimating.current = false;
           });
         } else {
           Animated.parallel([
             Animated.spring(pan, {
               toValue: { x: 0, y: 0 },
-              friction: 8,
-              tension: 50,
+              friction: 7,
+              tension: 40,
               useNativeDriver: true,
             }),
             Animated.spring(cardOpacity, {
               toValue: 1,
-              friction: 8,
-              tension: 50,
+              friction: 7,
+              tension: 40,
               useNativeDriver: true,
             }),
           ]).start();
         }
+        
+        pan.flattenOffset();
+      },
+      onPanResponderTerminate: () => {
+        Animated.parallel([
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            friction: 7,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.spring(cardOpacity, {
+            toValue: 1,
+            friction: 7,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        pan.flattenOffset();
       },
     })
   ).current;

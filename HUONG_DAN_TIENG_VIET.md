@@ -1,3 +1,4 @@
+Ver 2
 # Hướng Dẫn Tạo Database Reading Journal - Tiếng Việt
 
 ## Tổng Quan

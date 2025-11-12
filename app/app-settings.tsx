@@ -229,7 +229,7 @@ export default function AppSettingsScreen() {
                   <View style={styles.settingTextFull}>
                     <Text style={[styles.settingTitle, { color: colors.text }]}>Streak Reminders</Text>
                     <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                      Don't break your reading streak
+                      Don’t break your reading streak
                     </Text>
                   </View>
                   <Switch

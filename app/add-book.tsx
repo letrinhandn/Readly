@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Platform, Keyboard, Pressable } from 'react-native';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { Platform, Keyboard, Pressable , View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView } from 'react-native';
+
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';

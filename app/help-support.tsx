@@ -100,7 +100,7 @@ export default function HelpSupportScreen() {
           <View style={[styles.heroIcon, { backgroundColor: colors.primary + '15' }]}>
             <MessageCircle size={32} color={colors.primary} strokeWidth={2.5} />
           </View>
-          <Text style={[styles.heroTitle, { color: colors.text }]}>We're Here to Help</Text>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>We’re Here to Help</Text>
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             Get support, find answers to common questions, or share your feedback with us.
           </Text>

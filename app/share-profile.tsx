@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { Platform , View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+
 import { router } from 'expo-router';
 import { X, Share2, Download } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';

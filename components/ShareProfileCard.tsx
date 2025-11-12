@@ -8,7 +8,7 @@ import { ReadingStats } from '@/types/book';
 interface ShareProfileCardProps {
   profile: UserProfile;
   stats: ReadingStats;
-  completedBooks?: Array<{ id: string; title: string; coverUrl?: string; thumbnail?: string }>;
+  completedBooks?: { id: string; title: string; coverUrl?: string; thumbnail?: string }[];
 }
 
 const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(

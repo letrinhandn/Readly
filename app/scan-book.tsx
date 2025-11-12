@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Image, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X, Camera as CameraIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useTheme } from '@/contexts/theme-context';
+import { uploadImage, STORAGE_BUCKETS } from '@/lib/storage';
 
 export default function ScanBookScreen() {
   const { colors } = useTheme();
@@ -14,30 +15,56 @@ export default function ScanBookScreen() {
   const returnId = params.id;
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const pickImage = async () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setScannedImage(result.assets[0].uri);
-      const uri = result.assets[0].uri;
-      if (returnToRaw) {
-        const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
-  router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uri } });
-        return;
+      if (!result.canceled && result.assets[0]) {
+        const localUri = result.assets[0].uri;
+        setScannedImage(localUri);
+        
+        setUploading(true);
+        try {
+          const uploadResult = await uploadImage(
+            localUri,
+            STORAGE_BUCKETS.BOOK_COVERS,
+            'covers'
+          );
+          
+          if (returnToRaw) {
+            const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+            router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uploadResult.url } });
+            return;
+          }
+          
+          Alert.alert('Success', 'Book cover uploaded successfully!', [
+            { text: 'OK', onPress: () => router.back() }
+          ]);
+        } catch (error: any) {
+          console.error('Upload error:', error);
+          Alert.alert('Upload Failed', error.message || 'Failed to upload image. Using local copy.');
+          if (returnToRaw) {
+            const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+            router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: localUri } });
+          }
+        } finally {
+          setUploading(false);
+        }
       }
-      Alert.alert('Success', 'Book cover captured! Feature coming soon to auto-fill book details.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+    } catch (error: any) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -46,23 +73,48 @@ export default function ScanBookScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setScannedImage(result.assets[0].uri);
-      const uri = result.assets[0].uri;
-      if (returnToRaw) {
-        const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
-  router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uri } });
-        return;
+      if (!result.canceled && result.assets[0]) {
+        const localUri = result.assets[0].uri;
+        setScannedImage(localUri);
+        
+        setUploading(true);
+        try {
+          const uploadResult = await uploadImage(
+            localUri,
+            STORAGE_BUCKETS.BOOK_COVERS,
+            'covers'
+          );
+          
+          if (returnToRaw) {
+            const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+            router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: uploadResult.url } });
+            return;
+          }
+          
+          Alert.alert('Success', 'Book cover uploaded successfully!', [
+            { text: 'OK', onPress: () => router.back() }
+          ]);
+        } catch (error: any) {
+          console.error('Upload error:', error);
+          Alert.alert('Upload Failed', error.message || 'Failed to upload image. Using local copy.');
+          if (returnToRaw) {
+            const returnTo = returnToRaw.startsWith('/') ? returnToRaw : `/${returnToRaw}`;
+            router.replace({ pathname: returnTo as any, params: { id: returnId || '', scanned: localUri } });
+          }
+        } finally {
+          setUploading(false);
+        }
       }
-      Alert.alert('Success', 'Book cover captured! Feature coming soon to auto-fill book details.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+    } catch (error: any) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take picture. Please try again.');
     }
   };
 
@@ -128,10 +180,17 @@ export default function ScanBookScreen() {
       )}
 
       <View style={styles.controls}>
+        {uploading && (
+          <View style={[styles.uploadingOverlay, { backgroundColor: colors.overlay }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.uploadingText, { color: colors.surface }]}>Uploading image...</Text>
+          </View>
+        )}
         <TouchableOpacity
           style={[styles.controlButton, { backgroundColor: colors.surface }]}
           onPress={pickImage}
           activeOpacity={0.7}
+          disabled={uploading}
         >
           <Text style={[styles.controlButtonText, { color: colors.text }]}>Choose from Library</Text>
         </TouchableOpacity>
@@ -140,6 +199,7 @@ export default function ScanBookScreen() {
           style={[styles.captureButton, { backgroundColor: colors.primary }]}
           onPress={takePicture}
           activeOpacity={0.8}
+          disabled={uploading}
         >
           <CameraIcon size={32} color={colors.surface} strokeWidth={2} />
         </TouchableOpacity>
@@ -251,5 +311,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    zIndex: 10,
+  },
+  uploadingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });

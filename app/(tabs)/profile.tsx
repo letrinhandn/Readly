@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -8,6 +8,7 @@ import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useUser } from '@/contexts/user-context';
 import supabase from '@/lib/supabase';
+import { uploadImage, STORAGE_BUCKETS } from '@/lib/storage';
 
 export default function ProfileScreen() {
   const { stats, books } = useReading();
@@ -33,23 +34,49 @@ export default function ProfileScreen() {
     router.push('/help-support');
   };
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const handleChangeProfilePicture = async () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      updateProfile({ profileImage: result.assets[0].uri });
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (!result.canceled && result.assets[0]) {
+        setUploadingImage(true);
+        const imageUri = result.assets[0].uri;
+        
+        try {
+          const uploadResult = await uploadImage(
+            imageUri,
+            STORAGE_BUCKETS.AVATARS,
+            'profiles'
+          );
+          
+          updateProfile({ profileImage: uploadResult.url });
+          
+          if (Platform.OS !== 'web') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+          
+          Alert.alert('Success', 'Profile picture updated successfully!');
+        } catch (error: any) {
+          console.error('Upload error:', error);
+          Alert.alert('Upload Failed', error.message || 'Failed to upload image. Please try again.');
+        } finally {
+          setUploadingImage(false);
+        }
       }
+    } catch (error: any) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -96,9 +123,11 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <TouchableOpacity onPress={handleChangeProfilePicture} activeOpacity={0.8}>
+            <TouchableOpacity onPress={handleChangeProfilePicture} activeOpacity={0.8} disabled={uploadingImage}>
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                {profile?.profileImage && profile.profileImage.length > 0 ? (
+                {uploadingImage ? (
+                  <ActivityIndicator size="large" color={colors.surface} />
+                ) : profile?.profileImage && profile.profileImage.length > 0 ? (
                   <Image source={{ uri: profile.profileImage }} style={styles.avatarImage} resizeMode="cover" />
                 ) : (
                   <User size={48} color={colors.surface} strokeWidth={2} />

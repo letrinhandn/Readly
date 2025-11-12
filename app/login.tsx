@@ -10,8 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Keyboard,
-  Pressable,
+
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -144,8 +143,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Pressable style={styles.pressable} onPress={Keyboard.dismiss}>
-          <View style={styles.content}>
+        <View style={styles.content}>
           <View style={styles.logoContainer}>
             <Image
               source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/3gv9je3qq4xne7i2rncz7' }}
@@ -252,8 +250,7 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-          </View>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -267,9 +264,7 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  pressable: {
-    flex: 1,
-  },
+
   content: {
     flex: 1,
     paddingHorizontal: 24,

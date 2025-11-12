@@ -9,6 +9,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -89,7 +91,8 @@ export default function ResetPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <Pressable style={styles.pressable} onPress={Keyboard.dismiss}>
+          <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Reset Password</Text>
             <Text style={styles.subtitle}>Enter your new password below.</Text>
@@ -136,7 +139,8 @@ export default function ResetPasswordScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+          </View>
+        </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -148,6 +152,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   keyboardView: {
+    flex: 1,
+  },
+  pressable: {
     flex: 1,
   },
   content: {

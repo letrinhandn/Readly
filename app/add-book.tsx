@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Keyboard, Pressable } from 'react-native';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { router, Stack } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -43,11 +43,12 @@ export default function AddBookScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+        <Pressable style={styles.pressable} onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Book Title</Text>
             <TextInput
@@ -91,7 +92,8 @@ export default function AddBookScreen() {
           >
             <Text style={styles.addButtonText}>Add Book</Text>
           </TouchableOpacity>
-        </ScrollView>
+          </ScrollView>
+        </Pressable>
       </KeyboardAvoidingView>
     </View>
   );
@@ -103,6 +105,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   keyboardView: {
+    flex: 1,
+  },
+  pressable: {
     flex: 1,
   },
   scrollView: {

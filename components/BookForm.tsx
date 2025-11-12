@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, KeyboardAvoidingView, Platform, Keyboard, Pressable } from 'react-native';
 import { useTheme } from '@/contexts/theme-context';
 
 export type BookFormValues = {
@@ -197,7 +197,8 @@ export default function BookForm({
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 40}
         style={{ width: '100%', flex: 1 }}
       >
-        <ScrollView
+        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+          <ScrollView
           ref={(r) => { scrollRef.current = r; }}
           contentContainerStyle={{ paddingBottom: Math.max(24, keyboardHeight + 16) }}
           scrollIndicatorInsets={{ bottom: Math.max(24, keyboardHeight + 16) }}
@@ -238,7 +239,8 @@ export default function BookForm({
             <Text style={[styles.submitText]}>{submitLabel}</Text>
           </TouchableOpacity>
         </View>
-        </ScrollView>
+          </ScrollView>
+        </Pressable>
       </KeyboardAvoidingView>
     </View>
   );

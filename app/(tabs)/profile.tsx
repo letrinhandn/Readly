@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal, ActivityIndicator, Keyboard, Pressable } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -304,7 +304,8 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false}>
+            <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+              <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
                 <TextInput
@@ -369,7 +370,8 @@ export default function ProfileScreen() {
                   ))}
                 </View>
               </View>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
 
             <View style={styles.editModalActions}>
               <TouchableOpacity

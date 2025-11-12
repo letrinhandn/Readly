@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, Keyboard, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { X, Camera, Check } from 'lucide-react-native';
@@ -177,7 +177,7 @@ export default function ScanProgressScreen() {
                 <Camera size={32} color={Colors.light.surface} strokeWidth={2} />
               </TouchableOpacity>
             ) : (
-              <View style={styles.manualInput}>
+              <Pressable style={styles.manualInput} onPress={Keyboard.dismiss}>
                 <TextInput
                   style={styles.input}
                   value={scannedPage}
@@ -195,7 +195,7 @@ export default function ScanProgressScreen() {
                 >
                   <Check size={24} color={Colors.light.surface} strokeWidth={2.5} />
                 </TouchableOpacity>
-              </View>
+              </Pressable>
             )}
 
             {!showManualInput && (

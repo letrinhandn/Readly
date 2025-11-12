@@ -10,18 +10,28 @@ export default publicProcedure
   .input(z.object({ 
     userId: z.string().optional(),
   }))
-  .query(async ({ input }) => {
+  .query(async ({ input, ctx }) => {
     try {
-      const { data: sessions, error: sessionsError } = await supabase
+      let sessionsQuery = supabase
         .from('reading_sessions')
         .select('*')
         .not('end_time', 'is', null);
 
+      if (ctx.userId) {
+        sessionsQuery = sessionsQuery.eq('user_id', ctx.userId);
+      }
+
+      const { data: sessions, error: sessionsError } = await sessionsQuery;
+
       if (sessionsError) throw sessionsError;
 
-      const { data: books, error: booksError } = await supabase
-        .from('books')
-        .select('*');
+      let booksQuery = supabase.from('books').select('*');
+      
+      if (ctx.userId) {
+        booksQuery = booksQuery.eq('user_id', ctx.userId);
+      }
+
+      const { data: books, error: booksError } = await booksQuery;
 
       if (booksError) throw booksError;
 

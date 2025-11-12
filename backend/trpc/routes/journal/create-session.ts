@@ -18,12 +18,12 @@ export default publicProcedure
     mood: z.enum(['excited', 'calm', 'thoughtful', 'inspired', 'tired']).optional(),
     location: z.string().optional(),
   }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     try {
       const sessionData = {
         id: input.id,
         book_id: input.bookId,
-        user_id: input.userId,
+        user_id: input.userId || ctx.userId,
         start_time: input.startTime,
         end_time: input.endTime,
         pages_read: input.pagesRead,

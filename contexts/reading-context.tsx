@@ -10,6 +10,7 @@ const SESSIONS_KEY = 'reading_ritual_sessions';
 
 interface BookDB {
   id: string;
+  user_id?: string;
   title: string;
   author: string;
   cover_url?: string;
@@ -35,6 +36,7 @@ interface BookDB {
 function dbToBook(db: BookDB): Book {
   return {
     id: db.id,
+    userId: db.user_id,
     title: db.title,
     author: db.author,
     coverUrl: db.cover_url,
@@ -59,6 +61,7 @@ function dbToBook(db: BookDB): Book {
 function bookToDb(book: Book): BookDB {
   return {
     id: book.id,
+    user_id: book.userId,
     title: book.title,
     author: book.author,
     cover_url: book.coverUrl,
@@ -88,7 +91,15 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     queryKey: ['books'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('books').select('*');
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let query = supabase.from('books').select('*');
+        
+        if (user) {
+          query = query.eq('user_id', user.id);
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         if (data && Array.isArray(data)) {
           console.log('Books loaded from Supabase:', data.length);
@@ -107,7 +118,15 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     queryKey: ['sessions'],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from('reading_sessions').select('*');
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let query = supabase.from('reading_sessions').select('*');
+        
+        if (user) {
+          query = query.eq('user_id', user.id);
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         if (data && Array.isArray(data)) {
           return (data as any[]).map(session => ({
@@ -185,11 +204,13 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   });
   const { mutate: saveSessions } = saveSessionsM;
 
-  const addBook = useCallback((book: Omit<Book, 'id'>) => {
+  const addBook = useCallback(async (book: Omit<Book, 'id'>) => {
     const books = booksQuery.data ?? [];
+    const { data: { user } } = await supabase.auth.getUser();
     const newBook: Book = {
       ...book,
       id: Date.now().toString(),
+      userId: user?.id,
     };
     saveBooks([...books, newBook]);
   }, [booksQuery.data, saveBooks]);
@@ -208,20 +229,20 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     saveBooks(filtered);
   }, [booksQuery.data, saveBooks]);
 
-  const startReadingSession = useCallback((bookId: string) => {
+  const startReadingSession = useCallback(async (bookId: string) => {
     const sessionId = Date.now().toString();
+    const { data: { user } } = await supabase.auth.getUser();
     const newSession: ReadingSession = {
       id: sessionId,
       bookId,
+      userId: user?.id,
       startTime: new Date().toISOString(),
       pagesRead: 0,
       duration: 0,
     };
     const sessions = sessionsQuery.data ?? [];
     const updated = [...sessions, newSession];
-    // update the query cache immediately so other callers (endReadingSession) see the session
     queryClient.setQueryData(['sessions'], updated);
-    // persist in Supabase (background) with fallback to AsyncStorage
     saveSessionsM.mutateAsync(updated).catch((e) => {
       console.error('Failed to save sessions on start:', e);
     });

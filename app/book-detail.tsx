@@ -161,7 +161,7 @@ export default function BookDetailScreen() {
         <View style={styles.bookHeader}>
           {book.coverUrl || book.thumbnail ? (
             <Image 
-              source={{ uri: book.coverUrl || book.thumbnail }} 
+              source={{ uri: (book.coverUrl || book.thumbnail || '').replace('http:', 'https:') }} 
               style={styles.coverImage}
               resizeMode="cover"
             />

@@ -46,7 +46,7 @@ export default function FocusScreen() {
 
   const isAnimating = useRef(false);
 
-  const panResponder = useRef(
+      const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => currentBooks.length > 1,
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -54,7 +54,8 @@ export default function FocusScreen() {
         return Math.abs(gestureState.dx) > 2;
       },
       onPanResponderGrant: () => {
-        pan.setOffset({ x: pan.x._value, y: 0 });
+        // Accessing internal _value is unsafe across RN versions/types; cast to any to read current numeric value.
+        pan.setOffset({ x: (pan.x as any)._value, y: 0 });
         pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: (_, gestureState) => {

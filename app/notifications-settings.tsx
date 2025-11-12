@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Alert, Linking } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { ChevronLeft, Bell, Clock, Target, Award, BellRing } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -47,7 +47,7 @@ export default function NotificationsSettingsScreen() {
         'Please enable notifications in your device settings to receive reading reminders.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Notifications.openSettingsAsync() },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ]
       );
     }

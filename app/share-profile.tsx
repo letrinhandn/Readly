@@ -23,7 +23,7 @@ export default function ShareProfileScreen() {
 
   const handleShare = async () => {
     try {
-      if (Platform.OS !== 'web') {
+      if ((Platform.OS as string) !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
 
@@ -36,7 +36,7 @@ export default function ShareProfileScreen() {
         quality: 1,
       });
 
-      if (Platform.OS === 'web') {
+  if ((Platform.OS as string) === 'web') {
         const a = document.createElement('a');
         a.href = uri;
         a.download = `readly-profile-${Date.now()}.png`;
@@ -50,7 +50,7 @@ export default function ShareProfileScreen() {
         }
       }
 
-      if (Platform.OS !== 'web') {
+      if ((Platform.OS as string) !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
@@ -69,7 +69,7 @@ export default function ShareProfileScreen() {
 
       if (!cardRef.current) return;
 
-      if (Platform.OS === 'web') {
+      if ((Platform.OS as string) === 'web') {
         await handleShare();
         return;
       }
@@ -89,7 +89,7 @@ export default function ShareProfileScreen() {
 
       await MediaLibrary.saveToLibraryAsync(uri);
 
-      if (Platform.OS !== 'web') {
+      if ((Platform.OS as string) !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 

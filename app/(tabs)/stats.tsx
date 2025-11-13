@@ -8,12 +8,14 @@ import { useTheme } from '@/contexts/theme-context';
 const { width } = Dimensions.get('window');
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 type MetricType = 'pages' | 'minutes';
+type StreakPeriod = 'week' | 'month' | 'year';
 
 export default function StatsScreen() {
-  const { stats, sessions } = useReading();
+  const { stats, sessions, books } = useReading();
   const { colors } = useTheme();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('weekly');
   const [metricType, setMetricType] = useState<MetricType>('minutes');
+  const [streakPeriod, setStreakPeriod] = useState<StreakPeriod>('week');
 
   const completedSessions = useMemo(() => 
     sessions.filter(s => s.endTime).sort((a, b) => 
@@ -128,6 +130,50 @@ export default function StatsScreen() {
     };
   }, [periodData]);
 
+  const streakStats = useMemo(() => {
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (streakPeriod) {
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    
+    const filtered = completedSessions.filter(s => 
+      new Date(s.endTime!) >= startDate
+    );
+
+    const uniqueDays = new Set(
+      filtered.map(s => new Date(s.endTime!).toDateString())
+    ).size;
+
+    return {
+      daysActive: uniqueDays,
+      currentStreak: stats.currentStreak,
+      longestStreak: stats.longestStreak,
+    };
+  }, [streakPeriod, completedSessions, stats]);
+
+  const completedBooks = useMemo(() => 
+    books.filter(b => b.status === 'completed').sort((a, b) => {
+      const dateA = a.lastReadAt ? new Date(a.lastReadAt).getTime() : 0;
+      const dateB = b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0;
+      return dateB - dateA;
+    }), [books]
+  );
+
   const maxChartValue = Math.max(...chartData.map(d => d.value), 1);
 
   const getHeatmapColor = (count: number) => {
@@ -137,8 +183,6 @@ export default function StatsScreen() {
     if (count === 3) return colors.primary + '90';
     return colors.primary;
   };
-
-
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -152,6 +196,43 @@ export default function StatsScreen() {
         <View style={styles.header}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>Stats</Text>
           <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Track your reading journey</Text>
+        </View>
+
+        <View style={[styles.streakCard, { backgroundColor: colors.primary }]}>
+          <View style={styles.streakHeader}>
+            <View style={[styles.streakIconSmall, { backgroundColor: colors.surface }]}>
+              <Flame size={32} color={colors.accent} strokeWidth={2} />
+            </View>
+            <View style={styles.streakPeriodSelector}>
+              {(['week', 'month', 'year'] as StreakPeriod[]).map((period) => (
+                <TouchableOpacity
+                  key={period}
+                  onPress={() => setStreakPeriod(period)}
+                  style={[
+                    styles.streakPeriodButton,
+                    { 
+                      backgroundColor: streakPeriod === period ? colors.surface : 'transparent',
+                      borderColor: colors.surface + '40',
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.streakPeriodText,
+                    { color: streakPeriod === period ? colors.primary : colors.surface }
+                  ]}>
+                    {period.charAt(0).toUpperCase() + period.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <View style={styles.streakContent}>
+            <Text style={[styles.streakValue, { color: colors.surface }]}>{streakStats.daysActive}</Text>
+            <Text style={[styles.streakLabel, { color: colors.surface }]}>Day Streak</Text>
+            {streakStats.longestStreak > streakStats.currentStreak && (
+              <Text style={styles.streakBest}>Best: {streakStats.longestStreak} days</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.timePeriodSelector}>
@@ -183,10 +264,6 @@ export default function StatsScreen() {
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryValue, { color: colors.primary }]}>{periodStats.sessions}</Text>
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Sessions</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryValue, { color: colors.accent }]}>{periodStats.pagesRead}</Text>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Pages</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryValue, { color: colors.success }]}>{Math.floor(periodStats.minutesRead / 60)}h {periodStats.minutesRead % 60}m</Text>
@@ -294,56 +371,48 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
-          <View style={styles.streakContainer}>
-            <View style={[styles.streakIcon, { backgroundColor: colors.surface }]}>
-              <Flame size={40} color={colors.accent} strokeWidth={2} />
+        <View style={[styles.booksCompletedCard, { backgroundColor: colors.surface }]}>
+          <View style={styles.booksCompletedHeader}>
+            <Text style={[styles.booksCompletedTitle, { color: colors.text }]}>Books Completed</Text>
+            <View style={[styles.booksCompletedBadge, { backgroundColor: colors.primary + '15' }]}>
+              <Text style={[styles.booksCompletedCount, { color: colors.primary }]}>
+                {completedBooks.length}
+              </Text>
             </View>
-            <Text style={[styles.streakValue, { color: colors.surface }]}>{stats.currentStreak}</Text>
-            <Text style={[styles.streakLabel, { color: colors.surface }]}>Day Streak</Text>
-            {stats.longestStreak > stats.currentStreak ? (
-              <Text style={styles.streakBest}>Best: {stats.longestStreak} days</Text>
-            ) : null}
           </View>
+          
+          {completedBooks.length > 0 ? (
+            <View style={styles.booksCompletedList}>
+              {completedBooks.slice(0, 5).map((book) => (
+                <View key={book.id} style={[styles.bookCompletedItem, { borderBottomColor: colors.border }]}>
+                  <View style={styles.bookCompletedInfo}>
+                    <Text style={[styles.bookCompletedTitle, { color: colors.text }]} numberOfLines={1}>
+                      {book.title}
+                    </Text>
+                    <Text style={[styles.bookCompletedAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {book.author}
+                    </Text>
+                  </View>
+                  <View style={[styles.bookCompletedCheck, { backgroundColor: colors.success + '15' }]}>
+                    <BookOpen size={16} color={colors.success} strokeWidth={2} />
+                  </View>
+                </View>
+              ))}
+              {completedBooks.length > 5 && (
+                <Text style={[styles.booksCompletedMore, { color: colors.textSecondary }]}>
+                  +{completedBooks.length - 5} more
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View style={styles.booksCompletedEmpty}>
+              <BookOpen size={32} color={colors.textTertiary} strokeWidth={1.5} />
+              <Text style={[styles.booksCompletedEmptyText, { color: colors.textSecondary }]}>
+                No completed books yet
+              </Text>
+            </View>
+          )}
         </View>
-
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <BookOpen size={24} color={colors.primary} strokeWidth={2} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{stats.totalPagesRead}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pages Read</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.success + '15' }]}>
-              <Clock size={24} color={colors.success} strokeWidth={2} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {Math.floor(stats.totalMinutesRead / 60)}h {stats.totalMinutesRead % 60}m
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Time Spent</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.accent + '15' }]}>
-              <TrendingUp size={24} color={colors.accent} strokeWidth={2} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{stats.totalBooksRead}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Books Done</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.focus + '15' }]}>
-              <Flame size={24} color={colors.focus} strokeWidth={2} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{stats.sessionsThisWeek}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>This Week</Text>
-          </View>
-        </View>
-
-
 
         {sessions.filter(s => s.endTime).length === 0 && (
           <View style={styles.emptyState}>
@@ -368,6 +437,75 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 60,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  pageTitle: {
+    fontSize: 36,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+    letterSpacing: -1,
+  },
+  pageSubtitle: {
+    fontSize: 17,
+    fontWeight: '500' as const,
+  },
+  streakCard: {
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  streakHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  streakIconSmall: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakPeriodSelector: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  streakPeriodButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  streakPeriodText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  streakContent: {
+    alignItems: 'center',
+  },
+  streakValue: {
+    fontSize: 56,
+    fontWeight: '800' as const,
+    letterSpacing: -2,
+    marginBottom: 4,
+  },
+  streakLabel: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    letterSpacing: -0.2,
+  },
+  streakBest: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 8,
   },
   timePeriodSelector: {
     flexDirection: 'row',
@@ -530,94 +668,81 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 2,
   },
-  header: {
+  booksCompletedCard: {
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 32,
-  },
-  pageTitle: {
-    fontSize: 36,
-    fontWeight: '800' as const,
-    marginBottom: 4,
-    letterSpacing: -1,
-  },
-  pageSubtitle: {
-    fontSize: 17,
-    fontWeight: '500' as const,
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: 40,
-    marginBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  streakContainer: {
-    alignItems: 'center',
-  },
-  streakIcon: {
-    marginBottom: 12,
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  streakValue: {
-    fontSize: 56,
-    fontWeight: '800' as const,
-    letterSpacing: -2,
-    marginBottom: 4,
-  },
-  streakLabel: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    letterSpacing: -0.2,
-  },
-  streakBest: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 8,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 32,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '47%',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
+  booksCompletedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  booksCompletedTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+  },
+  booksCompletedBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
+  },
+  booksCompletedCount: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  booksCompletedList: {
+    gap: 0,
+  },
+  bookCompletedItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  bookCompletedInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  bookCompletedTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  bookCompletedAuthor: {
+    fontSize: 13,
+    fontWeight: '400' as const,
+  },
+  bookCompletedCheck: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
+  booksCompletedMore: {
     fontSize: 13,
     fontWeight: '500' as const,
     textAlign: 'center',
+    marginTop: 12,
   },
-
+  booksCompletedEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  booksCompletedEmptyText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginTop: 12,
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -142,21 +142,13 @@ export default function StatsScreen() {
           monthStart.setMonth(startDate.getMonth() + i);
           const month = monthStart.getMonth();
           const year = monthStart.getFullYear();
-          const key = `${year}-${month}`;
           
           let monthTotal = 0;
           for (let day = 0; day < 31; day++) {
             const checkDate = new Date(year, month, day + 1);
             if (checkDate.getMonth() === month) {
               const dayKey = checkDate.toDateString();
-              const sessionValue = filtered.find(s => {
-                const sessionDate = new Date(s.endTime!);
-                sessionDate.setHours(0, 0, 0, 0);
-                return sessionDate.toDateString() === dayKey;
-              });
-              if (sessionValue) {
-                monthTotal += metricType === 'pages' ? sessionValue.pagesRead : sessionValue.duration;
-              }
+              monthTotal += sessionsByPeriod.get(dayKey) || 0;
             }
           }
           

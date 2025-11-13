@@ -472,7 +472,7 @@ export default function LibraryScreen() {
                                 activeOpacity={0.7}
                               >
                                 {book.volumeInfo.imageLinks?.thumbnail && book.volumeInfo.imageLinks.thumbnail.length > 0 && (
-                                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail }} style={styles.modalBookCover} resizeMode="cover" />
+                                  <Image source={{ uri: book.volumeInfo.imageLinks.thumbnail.replace('http:', 'https:') }} style={styles.modalBookCover} resizeMode="cover" />
                                 )}
                                 <View style={styles.modalBookInfo}>
                                   <Text style={[styles.modalBookTitle, { color: colors.text }]} numberOfLines={2}>{book.volumeInfo.title}</Text>

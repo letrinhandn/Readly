@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Modal, Image, TextInput, PanResponder, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Modal, Image, TextInput, Dimensions } from 'react-native';
 import { router, Stack } from 'expo-router';
-import { BookOpen, Play, X, ChevronRight, Search } from 'lucide-react-native';
+import { BookOpen, Play, X, ChevronRight, ChevronLeft, Search } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
@@ -23,8 +23,7 @@ export default function FocusScreen() {
   const [showBookPicker, setShowBookPicker] = useState(false);
   const [bookSearchQuery, setBookSearchQuery] = useState('');
   
-  const pan = useRef(new Animated.ValueXY()).current;
-  const cardOpacity = useRef(new Animated.Value(1)).current;
+  // removed swipe gesture (PanResponder) and animated pan/cardOpacity
   
   const selectedBook = currentBooks[currentBookIndex] || null;
 
@@ -44,104 +43,7 @@ export default function FocusScreen() {
     }
   };
 
-  const isAnimating = useRef(false);
-
-      const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => currentBooks.length > 1,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (currentBooks.length <= 1) return false;
-        return Math.abs(gestureState.dx) > 2;
-      },
-      onPanResponderGrant: () => {
-        // Accessing internal _value is unsafe across RN versions/types; cast to any to read current numeric value.
-        pan.setOffset({ x: (pan.x as any)._value, y: 0 });
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (currentBooks.length <= 1) return;
-        pan.setValue({ x: gestureState.dx, y: 0 });
-        const normalizedDistance = Math.min(Math.abs(gestureState.dx) / SCREEN_WIDTH, 1);
-        const newOpacity = 1 - normalizedDistance * 0.4;
-        cardOpacity.setValue(Math.max(0.6, newOpacity));
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (currentBooks.length <= 1) {
-          pan.flattenOffset();
-          return;
-        }
-        
-        const velocity = gestureState.vx;
-        const distance = gestureState.dx;
-        
-        const shouldSwipeByDistance = Math.abs(distance) > SWIPE_THRESHOLD;
-        const shouldSwipeByVelocity = Math.abs(velocity) > VELOCITY_THRESHOLD;
-        
-        if (shouldSwipeByDistance || shouldSwipeByVelocity) {
-          const direction = distance > 0 ? 1 : -1;
-          const targetX = direction * SCREEN_WIDTH * 1.2;
-          
-          const duration = shouldSwipeByVelocity ? 150 : 200;
-          
-          Animated.parallel([
-            Animated.timing(pan, {
-              toValue: { x: targetX, y: 0 },
-              duration: duration,
-              useNativeDriver: true,
-            }),
-            Animated.timing(cardOpacity, {
-              toValue: 0,
-              duration: duration,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            pan.setValue({ x: 0, y: 0 });
-            cardOpacity.setValue(1);
-            
-            if (direction > 0) {
-              swipeToPrev();
-            } else {
-              swipeToNext();
-            }
-          });
-        } else {
-          Animated.parallel([
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              friction: 7,
-              tension: 40,
-              useNativeDriver: true,
-            }),
-            Animated.spring(cardOpacity, {
-              toValue: 1,
-              friction: 7,
-              tension: 40,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-        
-        pan.flattenOffset();
-      },
-      onPanResponderTerminate: () => {
-        Animated.parallel([
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            friction: 7,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-          Animated.spring(cardOpacity, {
-            toValue: 1,
-            friction: 7,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-        ]).start();
-        pan.flattenOffset();
-      },
-    })
-  ).current;
+  // swipe removed
 
   const handleStartReading = () => {
     if (Platform.OS !== 'web') {
@@ -193,15 +95,10 @@ export default function FocusScreen() {
 
         <View style={styles.mainContent}>
           {selectedBook ? (
-            <Animated.View 
-              {...panResponder.panHandlers}
+            <View 
               style={[
                 styles.selectedBookCard,
                 { backgroundColor: colors.surface },
-                {
-                  transform: [{ translateX: pan.x }],
-                  opacity: cardOpacity,
-                },
               ]}
             >
               {selectedBook.thumbnail && selectedBook.thumbnail.length > 0 ? (
@@ -237,25 +134,8 @@ export default function FocusScreen() {
                   {selectedBook.currentPage} / {selectedBook.totalPages} pages
                 </Text>
               </View>
-              {currentBooks.length > 1 && (
-                <View style={styles.swipeIndicatorContainer}>
-                  <View style={styles.dotsContainer}>
-                    {currentBooks.map((_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.dot,
-                          { backgroundColor: index === currentBookIndex ? colors.primary : colors.surfaceSecondary },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                  <Text style={[styles.swipeHint, { color: colors.textTertiary }]}>
-                    Swipe to browse • {currentBookIndex + 1} of {currentBooks.length}
-                  </Text>
-                </View>
-              )}
-            </Animated.View>
+              {/* removed swipe hint/dots; navigation via chevrons below */}
+            </View>
           ) : (
             <View style={styles.noBookState}>
               <View style={[styles.noBookIcon, { backgroundColor: colors.surface }]}>
@@ -269,14 +149,23 @@ export default function FocusScreen() {
         </View>
 
         {currentBooks.length > 0 && (
-          <TouchableOpacity
-            style={styles.changeBookButton}
-            onPress={() => setShowBookPicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.changeBookText, { color: colors.primary }]}>Change Book</Text>
-            <ChevronRight size={18} color={colors.primary} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={styles.changeRowContainer}>
+            <TouchableOpacity onPress={swipeToPrev} activeOpacity={0.7} style={styles.smallNavButton}>
+              <ChevronLeft size={18} color={colors.textSecondary} strokeWidth={2} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.changeBookButton}
+              onPress={() => setShowBookPicker(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.changeBookText, { color: colors.textSecondary }]}>Change Book</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={swipeToNext} activeOpacity={0.7} style={styles.smallNavButton}>
+              <ChevronRight size={18} color={colors.textSecondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         )}
 
         <TouchableOpacity
@@ -645,5 +534,20 @@ const styles = StyleSheet.create({
   swipeHint: {
     fontSize: 12,
     fontWeight: '500' as const,
+  },
+  changeRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  smallNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff10',
   },
 });

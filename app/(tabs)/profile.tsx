@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal, ActivityIndicator, Keyboard, Pressable } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
@@ -13,12 +13,23 @@ import { uploadImage, STORAGE_BUCKETS } from '@/lib/storage';
 export default function ProfileScreen() {
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
-  const { profile, updateProfile } = useUser();
+  const { profile, updateProfile, isLoading: isProfileLoading } = useUser();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editAge, setEditAge] = useState('');
   const [editGender, setEditGender] = useState<'male' | 'female' | 'other' | 'prefer-not-to-say'>('prefer-not-to-say');
+
+  useEffect(() => {
+    // If modal is open and profile becomes available (e.g. loaded async),
+    // populate the edit fields so the user sees existing values.
+    if (showEditModal && profile) {
+      setEditName(profile.name || '');
+      setEditBio(profile.bio || '');
+      setEditAge(profile.age?.toString() || '');
+      setEditGender(profile.gender || 'prefer-not-to-say');
+    }
+  }, [showEditModal, profile]);
 
   const handleNavigateToSettings = () => {
     if (Platform.OS !== 'web') {
@@ -140,8 +151,12 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.nameRow}>
             <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || 'Reading Enthusiast'}</Text>
-            <TouchableOpacity onPress={handleOpenEdit} activeOpacity={0.7}>
-              <Edit size={20} color={colors.primary} strokeWidth={2} />
+            <TouchableOpacity onPress={handleOpenEdit} activeOpacity={0.7} disabled={isProfileLoading}>
+              {isProfileLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Edit size={20} color={colors.primary} strokeWidth={2} />
+              )}
             </TouchableOpacity>
           </View>
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
@@ -605,13 +620,17 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 0,
   },
   editModalContent: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderRadius: 20,
     padding: 24,
-    maxHeight: '85%',
+    maxHeight: '95%',
+    width: '100%',
+    alignSelf: 'center',
+    marginTop: 8,
   },
   editModalHeader: {
     flexDirection: 'row',
@@ -625,7 +644,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   editForm: {
-    maxHeight: 400,
+    flexGrow: 1,
   },
   inputGroup: {
     marginBottom: 20,

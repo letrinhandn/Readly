@@ -2,7 +2,8 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { Book, ReadingSession, ReadingStats } from '@/types/book';
 
 const BOOKS_KEY = 'reading_ritual_books';
@@ -86,9 +87,10 @@ function bookToDb(book: Book): BookDB {
 export const [ReadingProvider, useReading] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   const booksQuery = useQuery({
-    queryKey: ['books'],
+    queryKey: ['books', authUserId],
     queryFn: async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -96,6 +98,33 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
           console.log('No authenticated user for books');
           const stored = await AsyncStorage.getItem(BOOKS_KEY);
           return stored ? (JSON.parse(stored) as Book[]) : [];
+        }
+
+        // migrate any locally-saved books (added while unauthenticated)
+        try {
+          const storedRaw = await AsyncStorage.getItem(BOOKS_KEY);
+          if (storedRaw) {
+            const storedBooks = JSON.parse(storedRaw) as Book[];
+            const unsynced = storedBooks.filter(b => !b.userId || b.userId === '');
+            const remaining = storedBooks.filter(b => b.userId && b.userId !== '');
+
+            if (unsynced.length > 0) {
+              console.log('Migrating', unsynced.length, 'local books to Supabase for user', user.id);
+              const dbBooks = unsynced.map(b => ({ ...bookToDb({ ...b, userId: user.id }) }));
+              const { error: upsertError } = await supabase.from('books').upsert(dbBooks);
+              if (upsertError) {
+                console.error('Failed to upsert migrated books:', upsertError);
+              } else {
+                if (remaining.length > 0) {
+                  await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(remaining));
+                } else {
+                  await AsyncStorage.removeItem(BOOKS_KEY);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Failed to migrate local books to Supabase:', e);
         }
 
         const { data, error } = await supabase
@@ -117,7 +146,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
   });
 
   const sessionsQuery = useQuery({
-    queryKey: ['sessions'],
+    queryKey: ['sessions', authUserId],
     queryFn: async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -174,7 +203,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       return books;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['books', authUserId] });
     },
   });
   const { mutate: saveBooks } = saveBooksM;
@@ -203,23 +232,20 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       return sessions;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions', authUserId] });
     },
   });
   const { mutate: saveSessions } = saveSessionsM;
 
   const addBook = useCallback(async (book: Omit<Book, 'id' | 'userId'>) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error('Cannot add book: No authenticated user');
-      return;
-    }
 
     const books = booksQuery.data ?? [];
     const newBook: Book = {
       ...book,
       id: Date.now().toString(),
-      userId: user.id,
+      // If user is not authenticated, store empty userId and rely on AsyncStorage fallback in saveBooks
+      userId: user?.id ?? '',
     };
     saveBooks([...books, newBook]);
   }, [booksQuery.data, saveBooks]);
@@ -232,11 +258,139 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     saveBooks(updatedBooks);
   }, [booksQuery.data, saveBooks]);
 
-  const deleteBook = useCallback((bookId: string) => {
+  const deleteBook = useCallback(async (bookId: string) => {
     const books = booksQuery.data ?? [];
     const filtered = books.filter((b) => b.id !== bookId);
-    saveBooks(filtered);
-  }, [booksQuery.data, saveBooks]);
+
+    // Try server-side delete when authenticated
+    try {
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.log('Auth getUser error when deleting:', userErr);
+
+      if (user) {
+        const { data: deletedData, error: delError } = await supabase
+          .from('books')
+          .delete()
+          .eq('id', bookId)
+          .select('id,user_id');
+
+        if (delError) {
+          console.error('Supabase delete error for book', bookId, delError);
+
+          // Inspect whether the row exists and who owns it
+          try {
+            const { data: existing, error: selError } = await supabase
+              .from('books')
+              .select('id,user_id')
+              .eq('id', bookId)
+              .maybeSingle();
+
+            if (selError) console.error('Error selecting book after delete failure:', selError);
+
+            if (existing) {
+              if (existing.user_id !== user.id) {
+                Alert.alert('Không thể xóa', 'Quyển sách này thuộc tài khoản khác và không thể xóa từ thiết bị này.');
+                return;
+              }
+              Alert.alert('Lỗi', 'Xóa thất bại trên server. Vui lòng thử lại.');
+              return;
+            } else {
+              // Row not found on server — remove locally
+              await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(filtered));
+              queryClient.setQueryData(['books', authUserId], filtered);
+              queryClient.invalidateQueries({ queryKey: ['books', authUserId] });
+              return;
+            }
+          } catch (e) {
+            console.error('Unexpected error while handling delete failure:', e);
+            Alert.alert('Lỗi', 'Không thể xóa quyển sách (lỗi không xác định).');
+            return;
+          }
+        }
+
+        // If delete succeeded, also delete related reading_sessions (best-effort)
+        try {
+          await supabase.from('reading_sessions').delete().eq('book_id', bookId);
+        } catch (e) {
+          console.log('Failed to delete reading sessions for book (non-fatal):', e);
+        }
+
+        // Update cache and refetch
+        queryClient.setQueryData(['books', authUserId], filtered);
+        queryClient.invalidateQueries({ queryKey: ['books', authUserId] });
+        queryClient.invalidateQueries({ queryKey: ['sessions', authUserId] });
+        return;
+      }
+    } catch (e) {
+      console.log('Error when attempting Supabase delete, will fallback to local:', e);
+    }
+
+    // Fallback: unauthenticated or server not reachable — remove locally
+    try {
+      await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(filtered));
+      queryClient.setQueryData(['books', authUserId], filtered);
+      queryClient.invalidateQueries({ queryKey: ['books', authUserId] });
+    } catch (e) {
+      console.log('Failed to persist deleted book to AsyncStorage:', e);
+      Alert.alert('Lỗi', 'Không thể xóa quyển sách ở thời điểm này.');
+    }
+  }, [booksQuery.data, queryClient, authUserId]);
+
+  // Listen for auth state changes and track current user id. Clear/refresh caches on sign-in/out.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user?.id ?? null;
+      console.log('Auth state changed:', event, !!session?.user, uid);
+      setAuthUserId(uid);
+
+      if (event === 'SIGNED_IN') {
+        queryClient.invalidateQueries({ queryKey: ['books', uid] });
+        queryClient.invalidateQueries({ queryKey: ['sessions', uid] });
+      }
+
+      if (event === 'SIGNED_OUT') {
+        // clear any cached user-scoped data
+        queryClient.setQueryData(['books', null], []);
+        queryClient.setQueryData(['sessions', null], []);
+      }
+    });
+
+    return () => {
+      try { data.subscription.unsubscribe(); } catch (e) {}
+    };
+  }, [queryClient]);
+
+  // Subscribe to Supabase realtime changes for books and reading_sessions for the current auth user
+  useEffect(() => {
+    let bookChannel: any = null;
+    let sessionChannel: any = null;
+    if (!authUserId) return;
+
+    try {
+      bookChannel = supabase
+        .channel(`public:books:user:${authUserId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'books', filter: `user_id=eq.${authUserId}` }, (payload) => {
+          console.log('Realtime books event:', (payload as any));
+          queryClient.invalidateQueries({ queryKey: ['books', authUserId] });
+        })
+        .subscribe();
+
+      sessionChannel = supabase
+        .channel(`public:reading_sessions:user:${authUserId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reading_sessions', filter: `user_id=eq.${authUserId}` }, (payload) => {
+          console.log('Realtime sessions event:', (payload as any));
+          queryClient.invalidateQueries({ queryKey: ['sessions', authUserId] });
+        })
+        .subscribe();
+    } catch (e) {
+      console.log('Failed to subscribe to Supabase realtime:', e);
+    }
+
+    return () => {
+      try { if (bookChannel) bookChannel.unsubscribe(); } catch (e) {}
+      try { if (sessionChannel) sessionChannel.unsubscribe(); } catch (e) {}
+    };
+  }, [queryClient, authUserId]);
 
   const startReadingSession = useCallback(async (bookId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -256,13 +410,13 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     };
     const sessions = sessionsQuery.data ?? [];
     const updated = [...sessions, newSession];
-    queryClient.setQueryData(['sessions'], updated);
+    queryClient.setQueryData(['sessions', authUserId], updated);
     saveSessionsM.mutateAsync(updated).catch((e) => {
       console.error('Failed to save sessions on start:', e);
     });
     setCurrentSessionId(sessionId);
     return sessionId;
-  }, [sessionsQuery.data, queryClient, saveSessionsM]);
+  }, [sessionsQuery.data, queryClient, saveSessionsM, authUserId]);
 
   const endReadingSession = useCallback(async (sessionId: string, pagesRead: number, reflection?: string, fallbackBookId?: string) => {
     const sessions = sessionsQuery.data ?? [];
@@ -286,9 +440,9 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
         reflection,
       } as ReadingSession;
 
-    const updatedSessions = [...sessions, newSession];
-    await saveSessionsM.mutateAsync(updatedSessions);
-    queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      const updatedSessions = [...sessions, newSession];
+      await saveSessionsM.mutateAsync(updatedSessions);
+      queryClient.invalidateQueries({ queryKey: ['sessions', authUserId] });
 
       const books = booksQuery.data ?? [];
       const book = books.find((b) => b.id === fallbackBookId);
@@ -312,8 +466,8 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
         ? { ...s, endTime: endTime.toISOString(), pagesRead, duration, reflection }
         : s
     );
-  await saveSessionsM.mutateAsync(updatedSessions);
-  queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    await saveSessionsM.mutateAsync(updatedSessions);
+    queryClient.invalidateQueries({ queryKey: ['sessions', authUserId] });
 
     const books = booksQuery.data ?? [];
     const book = books.find((b) => b.id === session.bookId);
@@ -326,7 +480,7 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
     }
 
     setCurrentSessionId(null);
-  }, [sessionsQuery.data, booksQuery.data, saveSessionsM, updateBook, queryClient]);
+  }, [sessionsQuery.data, booksQuery.data, saveSessionsM, updateBook, queryClient, authUserId]);
 
   const stats: ReadingStats = useMemo(() => {
     const books = booksQuery.data ?? [];

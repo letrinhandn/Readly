@@ -62,11 +62,25 @@ export default function BookDetailScreen() {
   }
 
   const handleDelete = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    deleteBook(book.id);
-    router.back();
+    Alert.alert(
+      'Delete book',
+      'Are you sure you want to delete this book? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (Platform.OS !== 'web') {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+            deleteBook(book.id);
+            router.back();
+          }
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleSharePress = () => {

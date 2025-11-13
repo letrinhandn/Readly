@@ -107,7 +107,7 @@ export default function RootLayout() {
           <SettingsProvider>
             <UserProvider>
               <ReadingProvider>
-                <GestureHandlerRootView>
+                <GestureHandlerRootView style={{ flex: 1 }}>
                   <RootLayoutNav />
                 </GestureHandlerRootView>
               </ReadingProvider>

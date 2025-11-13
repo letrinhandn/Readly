@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X, Play, Pause, Check, Share2 } from 'lucide-react-native';
+import { X, Play, Pause, Check, Share2, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -116,9 +116,9 @@ export default function FocusSessionScreen() {
     setPagesRead(isNaN(p) ? 0 : Math.max(0, p));
   }, [pagesInput, lastPageInput, book]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!book) return;
-    const newSessionId = startReadingSession(book.id);
+    const newSessionId = await startReadingSession(book.id);
     setSessionId(newSessionId);
     setIsRunning(true);
     setPagesInput('');
@@ -250,6 +250,14 @@ export default function FocusSessionScreen() {
           <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
           <Text style={styles.bookAuthor}>{book.author}</Text>
         </View>
+
+        {/* Change book button placed under the card, above the timer (only before session starts) */}
+        {!sessionId && (
+          <TouchableOpacity style={styles.changeBookRow} onPress={() => router.push('/library')} activeOpacity={0.8}>
+            <Text style={styles.changeBookText}>Change Book</Text>
+            <ChevronRight size={16} color={Colors.light.textSecondary} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
 
         <View style={styles.modesWrapper}>
           <View style={styles.modeRow}>
@@ -873,5 +881,18 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.light.textSecondary,
     letterSpacing: -0.2,
+  },
+  changeBookRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Math.max(6, 8 * scale),
+    marginTop: Math.max(12, 14 * verticalScale),
+    marginBottom: Math.max(6, 10 * verticalScale),
+  },
+  changeBookText: {
+    color: Colors.light.textSecondary,
+    fontWeight: '600' as const,
+    fontSize: Math.min(14, Math.max(12, 14 * scale)),
   },
 });

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions, AppState } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X, Play, Pause, Check, Share2, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
+import * as Notifications from 'expo-notifications';
 import { captureRef } from 'react-native-view-shot';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '@/constants/colors';
 import { useReading } from '@/contexts/reading-context';
 import ShareDailyCard from '@/components/ShareDailyCard';
@@ -13,6 +15,17 @@ import ShareDailyCard from '@/components/ShareDailyCard';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / 375;
 const verticalScale = SCREEN_HEIGHT / 667;
+
+const TIMER_STORAGE_KEY = 'reading_timer_state';
+const TIMER_NOTIFICATION_ID = 'reading-timer-notification';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function FocusSessionScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
@@ -43,6 +56,9 @@ export default function FocusSessionScreen() {
     reflection?: string;
   } | null>(null);
   const shareCardRef = React.useRef<View>(null);
+  const [notificationPermission, setNotificationPermission] = useState(false);
+  const notificationIdRef = React.useRef<string | null>(null);
+  const updateIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!book) {
@@ -51,32 +67,157 @@ export default function FocusSessionScreen() {
   }, [book]);
 
   useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        setNotificationPermission(finalStatus === 'granted');
+        console.log('Notification permission:', finalStatus);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
+        if (stored) {
+          const state = JSON.parse(stored);
+          if (state.bookId === bookId && state.isRunning && state.sessionId) {
+            console.log('Restoring timer state:', state);
+            setSessionId(state.sessionId);
+            setCountdownMode(state.countdownMode);
+            setCountdownDuration(state.countdownDuration);
+            
+            const now = Date.now();
+            const elapsed = Math.floor((now - state.startTimestamp) / 1000);
+            
+            if (state.countdownMode) {
+              const remaining = Math.max(0, state.initialRemainingSeconds - elapsed);
+              setRemainingSeconds(remaining);
+              if (remaining > 0) {
+                setIsRunning(true);
+              } else {
+                setShowCompleteForm(true);
+                await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
+              }
+            } else {
+              setSeconds(elapsed);
+              setIsRunning(true);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to restore timer state:', e);
+      }
+    })();
+  }, [bookId]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active' && sessionId && isRunning) {
+        try {
+          const stored = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
+          if (stored) {
+            const state = JSON.parse(stored);
+            const now = Date.now();
+            const elapsed = Math.floor((now - state.startTimestamp) / 1000);
+            
+            if (state.countdownMode) {
+              const remaining = Math.max(0, state.initialRemainingSeconds - elapsed);
+              setRemainingSeconds(remaining);
+              if (remaining <= 0) {
+                setIsRunning(false);
+                setShowCompleteForm(true);
+                await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
+                await cancelTimerNotification();
+              }
+            } else {
+              setSeconds(elapsed);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to sync timer on app resume:', e);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [sessionId, isRunning]);
+
+  useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
-    if (isRunning) {
-      if (countdownMode) {
-        interval = setInterval(() => {
-          setRemainingSeconds((r) => {
-            if (r === null) return 0;
-            if (r <= 1) {
-              setIsRunning(false);
-              setShowCompleteForm(true);
-              return 0;
+    if (isRunning && sessionId) {
+      (async () => {
+        try {
+          const stored = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
+          if (stored) {
+            const state = JSON.parse(stored);
+            const now = Date.now();
+            
+            if (countdownMode) {
+              const elapsed = Math.floor((now - state.startTimestamp) / 1000);
+              const remaining = Math.max(0, state.initialRemainingSeconds - elapsed);
+              
+              interval = setInterval(async () => {
+                try {
+                  const currentStored = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
+                  if (!currentStored) return;
+                  
+                  const currentState = JSON.parse(currentStored);
+                  const currentNow = Date.now();
+                  const currentElapsed = Math.floor((currentNow - currentState.startTimestamp) / 1000);
+                  const currentRemaining = Math.max(0, currentState.initialRemainingSeconds - currentElapsed);
+                  
+                  setRemainingSeconds(currentRemaining);
+                  
+                  if (currentRemaining <= 0) {
+                    setIsRunning(false);
+                    setShowCompleteForm(true);
+                    await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
+                    await cancelTimerNotification();
+                  } else {
+                    await updateTimerNotification(currentRemaining, true);
+                  }
+                } catch (e) {
+                  console.error('Timer update error:', e);
+                }
+              }, 1000);
+            } else {
+              interval = setInterval(async () => {
+                try {
+                  const currentStored = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
+                  if (!currentStored) return;
+                  
+                  const currentState = JSON.parse(currentStored);
+                  const currentNow = Date.now();
+                  const currentElapsed = Math.floor((currentNow - currentState.startTimestamp) / 1000);
+                  
+                  setSeconds(currentElapsed);
+                  await updateTimerNotification(currentElapsed, false);
+                } catch (e) {
+                  console.error('Timer update error:', e);
+                }
+              }, 1000);
             }
-            return r - 1;
-          });
-        }, 1000);
-      } else {
-        interval = setInterval(() => {
-          setSeconds((s) => s + 1);
-        }, 1000);
-      }
+          }
+        } catch (e) {
+          console.error('Failed to setup timer interval:', e);
+        }
+      })();
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, countdownMode]);
+  }, [isRunning, countdownMode, sessionId]);
 
   useEffect(() => {
     if (isRunning) {
@@ -116,6 +257,79 @@ export default function FocusSessionScreen() {
     setPagesRead(isNaN(p) ? 0 : Math.max(0, p));
   }, [pagesInput, lastPageInput, book]);
 
+  const showTimerNotification = useCallback(async (timeValue: number, isCountdown: boolean) => {
+    if (Platform.OS === 'web' || !notificationPermission || !book) return;
+
+    try {
+      const mins = Math.floor(timeValue / 60);
+      const secs = timeValue % 60;
+      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: isCountdown ? '⏱ Reading Timer (Countdown)' : '⏱ Reading Timer',
+          body: `${book.title}\n${timeStr} ${isCountdown ? 'remaining' : 'elapsed'}`,
+          sound: null,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          sticky: true,
+        },
+        trigger: null,
+      });
+      
+      notificationIdRef.current = notificationId;
+      console.log('Timer notification shown:', notificationId);
+    } catch (e) {
+      console.error('Failed to show timer notification:', e);
+    }
+  }, [notificationPermission, book]);
+
+  const updateTimerNotification = useCallback(async (timeValue: number, isCountdown: boolean) => {
+    if (Platform.OS === 'web' || !notificationPermission || !book) return;
+
+    try {
+      if (notificationIdRef.current) {
+        await Notifications.dismissNotificationAsync(notificationIdRef.current);
+      }
+      
+      await showTimerNotification(timeValue, isCountdown);
+    } catch (e) {
+      console.error('Failed to update timer notification:', e);
+    }
+  }, [notificationPermission, book, showTimerNotification]);
+
+  const cancelTimerNotification = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      if (notificationIdRef.current) {
+        await Notifications.dismissNotificationAsync(notificationIdRef.current);
+        notificationIdRef.current = null;
+      }
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('Timer notification cancelled');
+    } catch (e) {
+      console.error('Failed to cancel timer notification:', e);
+    }
+  }, []);
+
+  const saveTimerState = useCallback(async (newSessionId: string, running: boolean) => {
+    try {
+      const state = {
+        bookId: book?.id,
+        sessionId: newSessionId,
+        isRunning: running,
+        countdownMode,
+        countdownDuration,
+        initialRemainingSeconds: countdownMode ? (remainingSeconds ?? countdownDuration * 60) : 0,
+        startTimestamp: Date.now(),
+      };
+      await AsyncStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
+      console.log('Timer state saved:', state);
+    } catch (e) {
+      console.error('Failed to save timer state:', e);
+    }
+  }, [book, countdownMode, countdownDuration, remainingSeconds]);
+
   const handleStart = useCallback(async () => {
     if (!book) return;
     const newSessionId = await startReadingSession(book.id);
@@ -124,29 +338,47 @@ export default function FocusSessionScreen() {
     setPagesInput('');
     setLastPageInput('');
     setPagesRead(0);
+    
     if (countdownMode) {
-      setRemainingSeconds(countdownDuration * 60);
+      const initialSeconds = countdownDuration * 60;
+      setRemainingSeconds(initialSeconds);
+      await saveTimerState(newSessionId, true);
+      await showTimerNotification(initialSeconds, true);
     } else {
       setSeconds(0);
+      await saveTimerState(newSessionId, true);
+      await showTimerNotification(0, false);
     }
+    
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  }, [book, startReadingSession]);
+  }, [book, startReadingSession, countdownMode, countdownDuration, saveTimerState, showTimerNotification]);
 
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback(async () => {
     setIsRunning(false);
+    await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
+    await cancelTimerNotification();
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, []);
+  }, [cancelTimerNotification]);
 
-  const handleResume = useCallback(() => {
+  const handleResume = useCallback(async () => {
+    if (!sessionId) return;
     setIsRunning(true);
+    await saveTimerState(sessionId, true);
+    
+    if (countdownMode) {
+      await showTimerNotification(remainingSeconds ?? countdownDuration * 60, true);
+    } else {
+      await showTimerNotification(seconds, false);
+    }
+    
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, []);
+  }, [sessionId, countdownMode, remainingSeconds, countdownDuration, seconds, saveTimerState, showTimerNotification]);
 
   const handleComplete = useCallback(() => {
     if (!sessionId) return;
@@ -157,11 +389,13 @@ export default function FocusSessionScreen() {
   const confirmComplete = useCallback(async () => {
     if (!sessionId) return;
     const duration = Math.floor(seconds / 60);
-    // trim reflection to reasonable length (300 words)
     const words = reflectionText.trim().split(/\s+/).filter(Boolean);
     const limited = words.length > 300 ? words.slice(0, 300).join(' ') : reflectionText.trim();
-  // persist the session (await to ensure AsyncStorage write completes)
-  await endReadingSession(sessionId, Number(pagesRead || 0), limited, book?.id);
+    
+    await endReadingSession(sessionId, Number(pagesRead || 0), limited, book?.id);
+    await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
+    await cancelTimerNotification();
+    
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -174,7 +408,7 @@ export default function FocusSessionScreen() {
     });
     setShowShareModal(true);
     setShowCompleteForm(false);
-  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession]);
+  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification]);
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -226,6 +460,14 @@ export default function FocusSessionScreen() {
     setShowShareModal(false);
     router.back();
   };
+
+  useEffect(() => {
+    return () => {
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+      }
+    };
+  }, []);
 
   if (!book) return null;
 

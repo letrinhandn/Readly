@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Platform, ActivityIndicator, Image, Dimensions, Keyboard } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { BookOpen, Plus, X, Search, Camera, Play } from 'lucide-react-native';
+import { BookOpen, Plus, X, Search, Camera, ArrowUpAZ, ArrowDownAZ } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { useReading } from '@/contexts/reading-context';
@@ -14,6 +14,8 @@ export default function LibraryScreen() {
   const { colors } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'title' | 'author'>('title');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [totalPages, setTotalPages] = useState('');
@@ -117,8 +119,22 @@ export default function LibraryScreen() {
     );
   };
 
-  const currentBooks = filterBooks(books.filter(b => b.status === 'reading'));
-  const completedBooks = filterBooks(books.filter(b => b.status === 'completed'));
+  const sortBooks = (booksList: Book[]) => {
+    const sorted = [...booksList].sort((a, b) => {
+      const aValue = sortBy === 'title' ? a.title.toLowerCase() : a.author.toLowerCase();
+      const bValue = sortBy === 'title' ? b.title.toLowerCase() : b.author.toLowerCase();
+      
+      if (sortOrder === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+    return sorted;
+  };
+
+  const currentBooks = sortBooks(filterBooks(books.filter(b => b.status === 'reading')));
+  const completedBooks = sortBooks(filterBooks(books.filter(b => b.status === 'completed')));
 
   // Note: page-level Google Books search removed — modal-only search kept below
 
@@ -317,21 +333,6 @@ export default function LibraryScreen() {
                       ) : null}
                     </View>
                   </TouchableOpacity>
-                  {book.status === 'reading' && (
-                    <TouchableOpacity
-                      style={[styles.readNowButton, { backgroundColor: colors.primary }]}
-                      onPress={() => {
-                        if (Platform.OS !== 'web') {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        }
-                        router.push(`/focus-session?bookId=${book.id}`);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Play size={14} color="#FFF" strokeWidth={2.5} fill="#FFF" />
-                      <Text style={styles.readNowText}>Read Now</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               ))}
             </View>
@@ -369,6 +370,58 @@ export default function LibraryScreen() {
               <X size={20} color={colors.textTertiary} strokeWidth={2} />
             </TouchableOpacity>
           )}
+        </View>
+
+        <View style={styles.sortContainer}>
+          <TouchableOpacity
+            style={[styles.sortButton, sortBy === 'title' && { backgroundColor: colors.primary + '20' }]}
+            onPress={() => {
+              if (sortBy === 'title') {
+                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortBy('title');
+                setSortOrder('asc');
+              }
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.sortButtonText, { color: sortBy === 'title' ? colors.primary : colors.textSecondary }]}>
+              Title
+            </Text>
+            {sortBy === 'title' && (
+              sortOrder === 'asc' ? 
+                <ArrowUpAZ size={16} color={colors.primary} strokeWidth={2} /> :
+                <ArrowDownAZ size={16} color={colors.primary} strokeWidth={2} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sortButton, sortBy === 'author' && { backgroundColor: colors.primary + '20' }]}
+            onPress={() => {
+              if (sortBy === 'author') {
+                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortBy('author');
+                setSortOrder('asc');
+              }
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.sortButtonText, { color: sortBy === 'author' ? colors.primary : colors.textSecondary }]}>
+              Author
+            </Text>
+            {sortBy === 'author' && (
+              sortOrder === 'asc' ? 
+                <ArrowUpAZ size={16} color={colors.primary} strokeWidth={2} /> :
+                <ArrowDownAZ size={16} color={colors.primary} strokeWidth={2} />
+            )}
+          </TouchableOpacity>
         </View>
 
         
@@ -998,25 +1051,23 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     letterSpacing: -0.2,
   },
-  readNowButton: {
+  sortContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 24,
+    marginBottom: 20,
+  },
+  sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
   },
-  readNowText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
 });

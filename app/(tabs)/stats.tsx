@@ -305,7 +305,7 @@ export default function StatsScreen() {
   const maxChartValue = Math.max(...chartData.map(d => d.value), 1);
 
   const getHeatmapColor = (count: number) => {
-    if (count === 0) return colors.border;
+    if (count === 0) return colors.surface;
     if (count === 1) return colors.primary + '30';
     if (count === 2) return colors.primary + '60';
     if (count === 3) return colors.primary + '90';
@@ -502,28 +502,42 @@ export default function StatsScreen() {
                 </Text>
               ))}
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.heatmapScrollView}>
-              <View>
-                <View style={styles.heatmapGrid}>
-                  {Array.from({ length: heatmapData.weeks }).map((_, weekIndex) => (
-                    <View key={weekIndex} style={styles.heatmapColumn}>
-                      {Array.from({ length: 7 }).map((_, dayIndex) => {
-                        const dataIndex = weekIndex * 7 + dayIndex;
-                        const item = heatmapData.data[dataIndex];
-                        if (!item) return <View key={dayIndex} style={styles.heatmapCellGithub} />;
+            <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.heatmapScrollView}>
+              <View style={styles.heatmapGrid}>
+                {Array.from({ length: heatmapData.weeks }).map((_, weekIndex) => (
+                  <View key={weekIndex} style={styles.heatmapColumn}>
+                    {Array.from({ length: 7 }).map((_, dayIndex) => {
+                      const dataIndex = weekIndex * 7 + dayIndex;
+                      const item = heatmapData.data[dataIndex];
+                      if (!item) {
                         return (
                           <View
                             key={dayIndex}
                             style={[
                               styles.heatmapCellGithub,
-                              { backgroundColor: getHeatmapColor(item.count) }
+                              { 
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                              }
                             ]}
                           />
                         );
-                      })}
-                    </View>
-                  ))}
-                </View>
+                      }
+                      return (
+                        <View
+                          key={dayIndex}
+                          style={[
+                            styles.heatmapCellGithub,
+                            { 
+                              backgroundColor: getHeatmapColor(item.count),
+                              borderColor: item.count > 0 ? colors.primary + '20' : colors.border,
+                            }
+                          ]}
+                        />
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </ScrollView>
           </View>
@@ -833,26 +847,25 @@ const styles = StyleSheet.create({
   heatmapDayLabel: {
     fontSize: 9,
     fontWeight: '500' as const,
-    height: 12,
-    lineHeight: 12,
+    height: 14,
+    lineHeight: 14,
   },
   heatmapScrollView: {
     flex: 1,
   },
   heatmapGrid: {
     flexDirection: 'row',
-    gap: 3,
+    gap: 4,
   },
   heatmapColumn: {
     flexDirection: 'column',
-    gap: 3,
+    gap: 4,
   },
   heatmapCellGithub: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   heatmapLegend: {
     flexDirection: 'row',
@@ -869,6 +882,8 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   booksCompletedCard: {
     borderRadius: 20,

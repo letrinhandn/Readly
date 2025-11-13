@@ -62,11 +62,9 @@ export default function StatsScreen() {
   }, [timePeriod, completedSessions]);
 
   const chartData = useMemo(() => {
-    const { sessions: filtered } = periodData;
-    
-    if (filtered.length === 0) {
-      return [];
-    }
+    const { startDate, dayCount, sessions: filtered } = periodData;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
 
     const sessionsByPeriod = new Map<string, number>();
     
@@ -95,21 +93,13 @@ export default function StatsScreen() {
       sessionsByPeriod.set(key, (sessionsByPeriod.get(key) || 0) + value);
     });
 
-    const oldestDate = new Date(Math.min(...filtered.map(s => new Date(s.endTime!).getTime())));
-    const newestDate = new Date(Math.max(...filtered.map(s => new Date(s.endTime!).getTime())));
     const data: { label: string; value: number; index: number }[] = [];
 
     switch (timePeriod) {
       case 'daily': {
-        const start = new Date(oldestDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(newestDate);
-        end.setHours(0, 0, 0, 0);
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        
-        for (let i = 0; i < days; i++) {
-          const date = new Date(start);
-          date.setDate(start.getDate() + i);
+        for (let i = 0; i < dayCount; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
           const key = date.toDateString();
           data.push({ 
             label: date.getDate().toString(), 
@@ -120,15 +110,10 @@ export default function StatsScreen() {
         break;
       }
       case 'weekly': {
-        const start = new Date(oldestDate);
-        start.setDate(oldestDate.getDate() - oldestDate.getDay());
-        const end = new Date(newestDate);
-        end.setDate(newestDate.getDate() - newestDate.getDay());
-        const weeks = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
-        
+        const weeks = Math.ceil(dayCount / 7);
         for (let i = 0; i < weeks; i++) {
-          const date = new Date(start);
-          date.setDate(start.getDate() + (i * 7));
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + (i * 7));
           const key = date.toDateString();
           data.push({ 
             label: `${i + 1}`, 
@@ -139,15 +124,12 @@ export default function StatsScreen() {
         break;
       }
       case 'monthly': {
-        const startMonth = oldestDate.getMonth();
-        const startYear = oldestDate.getFullYear();
-        const endMonth = newestDate.getMonth();
-        const endYear = newestDate.getFullYear();
-        const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-        
-        for (let i = 0; i < totalMonths; i++) {
-          const month = (startMonth + i) % 12;
-          const year = startYear + Math.floor((startMonth + i) / 12);
+        const months = Math.ceil(dayCount / 30);
+        for (let i = 0; i < months; i++) {
+          const date = new Date(startDate);
+          date.setMonth(startDate.getMonth() + i);
+          const month = date.getMonth();
+          const year = date.getFullYear();
           const key = `${year}-${month}`;
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           data.push({ 
@@ -159,18 +141,21 @@ export default function StatsScreen() {
         break;
       }
       default: {
-        const startYear = oldestDate.getFullYear();
-        const endYear = newestDate.getFullYear();
-        const years = endYear - startYear + 1;
-        
-        for (let i = 0; i < years; i++) {
-          const year = startYear + i;
-          const key = `${year}`;
-          data.push({ 
-            label: year.toString(), 
-            value: sessionsByPeriod.get(key) || 0,
-            index: i + 1
-          });
+        if (filtered.length > 0) {
+          const oldestDate = new Date(Math.min(...filtered.map(s => new Date(s.endTime!).getTime())));
+          const startYear = oldestDate.getFullYear();
+          const endYear = now.getFullYear();
+          const years = endYear - startYear + 1;
+          
+          for (let i = 0; i < years; i++) {
+            const year = startYear + i;
+            const key = `${year}`;
+            data.push({ 
+              label: year.toString(), 
+              value: sessionsByPeriod.get(key) || 0,
+              index: i + 1
+            });
+          }
         }
         break;
       }
@@ -320,7 +305,7 @@ export default function StatsScreen() {
   const maxChartValue = Math.max(...chartData.map(d => d.value), 1);
 
   const getHeatmapColor = (count: number) => {
-    if (count === 0) return colors.surface;
+    if (count === 0) return colors.border;
     if (count === 1) return colors.primary + '30';
     if (count === 2) return colors.primary + '60';
     if (count === 3) return colors.primary + '90';
@@ -866,6 +851,8 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   heatmapLegend: {
     flexDirection: 'row',

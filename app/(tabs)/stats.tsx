@@ -66,34 +66,14 @@ export default function StatsScreen() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const sessionsByPeriod = new Map<string, number>();
+    const sessionsByDay = new Map<string, number>();
     
     filtered.forEach(s => {
       const sessionDate = new Date(s.endTime!);
       sessionDate.setHours(0, 0, 0, 0);
-      let key: string;
-      
-      switch (timePeriod) {
-        case 'daily':
-          key = sessionDate.toDateString();
-          break;
-        case 'weekly': {
-          const weekStart = new Date(sessionDate);
-          weekStart.setDate(sessionDate.getDate() - sessionDate.getDay());
-          weekStart.setHours(0, 0, 0, 0);
-          key = weekStart.toDateString();
-          break;
-        }
-        case 'monthly':
-          key = `${sessionDate.getFullYear()}-${sessionDate.getMonth()}`;
-          break;
-        default:
-          key = `${sessionDate.getFullYear()}`;
-          break;
-      }
-      
+      const key = sessionDate.toDateString();
       const value = metricType === 'pages' ? s.pagesRead : s.duration;
-      sessionsByPeriod.set(key, (sessionsByPeriod.get(key) || 0) + value);
+      sessionsByDay.set(key, (sessionsByDay.get(key) || 0) + value);
     });
 
     const data: { label: string; value: number; index: number }[] = [];
@@ -106,7 +86,7 @@ export default function StatsScreen() {
           const key = date.toDateString();
           data.push({ 
             label: date.getDate().toString(), 
-            value: sessionsByPeriod.get(key) || 0,
+            value: sessionsByDay.get(key) || 0,
             index: i + 1
           });
         }
@@ -124,7 +104,7 @@ export default function StatsScreen() {
             const checkDate = new Date(weekStart);
             checkDate.setDate(weekStart.getDate() + day);
             const key = checkDate.toDateString();
-            weekTotal += sessionsByPeriod.get(key) || 0;
+            weekTotal += sessionsByDay.get(key) || 0;
           }
           
           data.push({ 
@@ -137,6 +117,8 @@ export default function StatsScreen() {
       }
       case 'monthly': {
         const months = Math.ceil(dayCount / 30);
+        const now = new Date();
+        
         for (let i = 0; i < months; i++) {
           const monthStart = new Date(startDate);
           monthStart.setMonth(startDate.getMonth() + i);
@@ -144,11 +126,15 @@ export default function StatsScreen() {
           const year = monthStart.getFullYear();
           
           let monthTotal = 0;
-          for (let day = 0; day < 31; day++) {
-            const checkDate = new Date(year, month, day + 1);
-            if (checkDate.getMonth() === month) {
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          
+          for (let day = 1; day <= daysInMonth; day++) {
+            const checkDate = new Date(year, month, day);
+            checkDate.setHours(0, 0, 0, 0);
+            
+            if (checkDate <= now) {
               const dayKey = checkDate.toDateString();
-              monthTotal += sessionsByPeriod.get(dayKey) || 0;
+              monthTotal += sessionsByDay.get(dayKey) || 0;
             }
           }
           
@@ -170,10 +156,24 @@ export default function StatsScreen() {
           
           for (let i = 0; i < years; i++) {
             const year = startYear + i;
-            const key = `${year}`;
+            let yearTotal = 0;
+            
+            for (let month = 0; month < 12; month++) {
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              for (let day = 1; day <= daysInMonth; day++) {
+                const checkDate = new Date(year, month, day);
+                checkDate.setHours(0, 0, 0, 0);
+                
+                if (checkDate <= now) {
+                  const dayKey = checkDate.toDateString();
+                  yearTotal += sessionsByDay.get(dayKey) || 0;
+                }
+              }
+            }
+            
             data.push({ 
               label: year.toString(), 
-              value: sessionsByPeriod.get(key) || 0,
+              value: yearTotal,
               index: i + 1
             });
           }

@@ -495,24 +495,31 @@ export default function StatsScreen() {
           <View style={styles.heatmapContainer}>
             <View style={styles.heatmapDayLabels}>
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                <Text key={i} style={[styles.heatmapDayLabel, { color: colors.textTertiary }]}>
+                <Text key={i} style={[
+                  timePeriod === 'weekly' ? styles.heatmapDayLabelWeekly : 
+                  timePeriod === 'daily' ? styles.heatmapDayLabelDaily : 
+                  styles.heatmapDayLabel, 
+                  { color: colors.textTertiary }
+                ]}>
                   {day.charAt(0)}
                 </Text>
               ))}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.heatmapScrollView}>
-              <View style={styles.heatmapGrid}>
+              <View style={timePeriod === 'weekly' ? styles.heatmapGridWeekly : timePeriod === 'daily' ? styles.heatmapGridDaily : styles.heatmapGrid}>
                 {Array.from({ length: heatmapData.weeks }).map((_, weekIndex) => (
-                  <View key={weekIndex} style={styles.heatmapColumn}>
+                  <View key={weekIndex} style={timePeriod === 'weekly' ? styles.heatmapColumnWeekly : timePeriod === 'daily' ? styles.heatmapColumnDaily : styles.heatmapColumn}>
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const dataIndex = weekIndex * 7 + dayIndex;
                       const item = heatmapData.data[dataIndex];
+                      
+                      const cellStyle = timePeriod === 'weekly' ? styles.heatmapCellWeekly : timePeriod === 'daily' ? styles.heatmapCellDaily : styles.heatmapCellGithub;
                       
                       return (
                         <View
                           key={dayIndex}
                           style={[
-                            styles.heatmapCellGithub,
+                            cellStyle,
                             { 
                               backgroundColor: item ? getHeatmapColor(item.count) : colors.surface,
                               borderColor: item && item.count > 0 ? colors.primary + '20' : colors.border,
@@ -835,6 +842,18 @@ const styles = StyleSheet.create({
     height: 14,
     lineHeight: 14,
   },
+  heatmapDayLabelWeekly: {
+    fontSize: 9,
+    fontWeight: '500' as const,
+    height: 18,
+    lineHeight: 18,
+  },
+  heatmapDayLabelDaily: {
+    fontSize: 9,
+    fontWeight: '500' as const,
+    height: 16,
+    lineHeight: 16,
+  },
   heatmapScrollView: {
     flex: 1,
   },
@@ -851,6 +870,34 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 3,
     borderWidth: 1,
+  },
+  heatmapCellWeekly: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  heatmapCellDaily: {
+    width: 40,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  heatmapColumnWeekly: {
+    flexDirection: 'column',
+    gap: 5,
+  },
+  heatmapColumnDaily: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  heatmapGridWeekly: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  heatmapGridDaily: {
+    flexDirection: 'row',
+    gap: 4,
   },
   heatmapLegend: {
     flexDirection: 'row',

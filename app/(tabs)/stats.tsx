@@ -62,76 +62,174 @@ export default function StatsScreen() {
   }, [timePeriod, completedSessions]);
 
   const chartData = useMemo(() => {
-    const { startDate, dayCount, sessions: filtered } = periodData;
-    const data: { date: Date; value: number }[] = [];
+    const { sessions: filtered } = periodData;
+    
+    if (filtered.length === 0) {
+      return [];
+    }
 
-    for (let i = 0; i < dayCount; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
+    const sessionsByPeriod = new Map<string, number>();
+    
+    filtered.forEach(s => {
+      const sessionDate = new Date(s.endTime!);
+      let key: string;
+      
+      switch (timePeriod) {
+        case 'daily':
+          key = sessionDate.toDateString();
+          break;
+        case 'weekly':
+          const weekStart = new Date(sessionDate);
+          weekStart.setDate(sessionDate.getDate() - sessionDate.getDay());
+          key = weekStart.toDateString();
+          break;
+        case 'monthly':
+          key = `${sessionDate.getFullYear()}-${sessionDate.getMonth()}`;
+          break;
+        default:
+          key = `${sessionDate.getFullYear()}`;
+          break;
+      }
+      
+      const value = metricType === 'pages' ? s.pagesRead : s.duration;
+      sessionsByPeriod.set(key, (sessionsByPeriod.get(key) || 0) + value);
+    });
 
-      const daySessions = filtered.filter(s => {
-        const sessionDate = new Date(s.endTime!);
-        return sessionDate >= dayStart && sessionDate <= dayEnd;
-      });
+    const oldestDate = new Date(Math.min(...filtered.map(s => new Date(s.endTime!).getTime())));
+    const newestDate = new Date(Math.max(...filtered.map(s => new Date(s.endTime!).getTime())));
+    const data: { label: string; value: number; index: number }[] = [];
 
-      const value = metricType === 'pages'
-        ? daySessions.reduce((sum, s) => sum + s.pagesRead, 0)
-        : daySessions.reduce((sum, s) => sum + s.duration, 0);
-
-      data.push({ date, value });
+    switch (timePeriod) {
+      case 'daily': {
+        const start = new Date(oldestDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(newestDate);
+        end.setHours(0, 0, 0, 0);
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        for (let i = 0; i < days; i++) {
+          const date = new Date(start);
+          date.setDate(start.getDate() + i);
+          const key = date.toDateString();
+          data.push({ 
+            label: date.getDate().toString(), 
+            value: sessionsByPeriod.get(key) || 0,
+            index: i + 1
+          });
+        }
+        break;
+      }
+      case 'weekly': {
+        const start = new Date(oldestDate);
+        start.setDate(oldestDate.getDate() - oldestDate.getDay());
+        const end = new Date(newestDate);
+        end.setDate(newestDate.getDate() - newestDate.getDay());
+        const weeks = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
+        
+        for (let i = 0; i < weeks; i++) {
+          const date = new Date(start);
+          date.setDate(start.getDate() + (i * 7));
+          const key = date.toDateString();
+          data.push({ 
+            label: `${i + 1}`, 
+            value: sessionsByPeriod.get(key) || 0,
+            index: i + 1
+          });
+        }
+        break;
+      }
+      case 'monthly': {
+        const startMonth = oldestDate.getMonth();
+        const startYear = oldestDate.getFullYear();
+        const endMonth = newestDate.getMonth();
+        const endYear = newestDate.getFullYear();
+        const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+        
+        for (let i = 0; i < totalMonths; i++) {
+          const month = (startMonth + i) % 12;
+          const year = startYear + Math.floor((startMonth + i) / 12);
+          const key = `${year}-${month}`;
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          data.push({ 
+            label: monthNames[month], 
+            value: sessionsByPeriod.get(key) || 0,
+            index: i + 1
+          });
+        }
+        break;
+      }
+      default: {
+        const startYear = oldestDate.getFullYear();
+        const endYear = newestDate.getFullYear();
+        const years = endYear - startYear + 1;
+        
+        for (let i = 0; i < years; i++) {
+          const year = startYear + i;
+          const key = `${year}`;
+          data.push({ 
+            label: year.toString(), 
+            value: sessionsByPeriod.get(key) || 0,
+            index: i + 1
+          });
+        }
+        break;
+      }
     }
 
     return data;
-  }, [periodData, metricType]);
+  }, [periodData, metricType, timePeriod]);
 
   const heatmapData = useMemo(() => {
     const today = new Date();
-    let dayCount: number;
+    today.setHours(0, 0, 0, 0);
+    let weeks: number;
     
     switch (timePeriod) {
       case 'daily':
-        dayCount = 7;
+        weeks = 1;
         break;
       case 'weekly':
-        dayCount = 84;
+        weeks = 12;
         break;
       case 'monthly':
-        dayCount = 180;
+        weeks = 26;
         break;
       default:
-        const oldestSession = completedSessions.length > 0 
-          ? Math.min(...completedSessions.map(s => new Date(s.endTime!).getTime()))
-          : today.getTime();
-        const diffTime = Math.abs(today.getTime() - oldestSession);
-        dayCount = Math.min(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 365);
+        weeks = 52;
     }
 
+    const endDate = new Date(today);
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() - (dayCount - 1));
-    startDate.setHours(0, 0, 0, 0);
+    startDate.setDate(today.getDate() - (weeks * 7) + 1);
+    
+    const firstDayOfWeek = startDate.getDay();
+    if (firstDayOfWeek !== 0) {
+      startDate.setDate(startDate.getDate() - firstDayOfWeek);
+    }
 
-    const data: { date: Date; count: number }[] = [];
-    for (let i = 0; i < dayCount; i++) {
+    const sessionsByDay = new Map<string, number>();
+    completedSessions.forEach(s => {
+      const date = new Date(s.endTime!);
+      date.setHours(0, 0, 0, 0);
+      const key = date.toDateString();
+      sessionsByDay.set(key, (sessionsByDay.get(key) || 0) + 1);
+    });
+
+    const data: { date: Date; count: number; dayOfWeek: number; weekIndex: number }[] = [];
+    const totalDays = weeks * 7;
+    
+    for (let i = 0; i < totalDays; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      const count = completedSessions.filter(s => {
-        const sessionDate = new Date(s.endTime!);
-        return sessionDate >= dayStart && sessionDate <= dayEnd;
-      }).length;
-
-      data.push({ date, count });
+      const key = date.toDateString();
+      const count = sessionsByDay.get(key) || 0;
+      const dayOfWeek = date.getDay();
+      const weekIndex = Math.floor(i / 7);
+      
+      data.push({ date, count, dayOfWeek, weekIndex });
     }
 
-    return data;
+    return { data, weeks };
   }, [completedSessions, timePeriod]);
 
   const periodStats = useMemo(() => {
@@ -358,30 +456,46 @@ export default function StatsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.chart}>
-            {chartData.map((item, index) => {
-              const heightPercent = maxChartValue > 0 ? (item.value / maxChartValue) : 0;
-              const barHeight = Math.max(heightPercent * 120, item.value > 0 ? 4 : 0);
-              const showLabel = timePeriod === 'daily' || (index % (timePeriod === 'weekly' ? 4 : 15) === 0);
+          {chartData.length > 0 ? (
+            <View style={styles.chart}>
+              {chartData.map((item, index) => {
+                const heightPercent = maxChartValue > 0 ? (item.value / maxChartValue) : 0;
+                const barHeight = Math.max(heightPercent * 120, item.value > 0 ? 4 : 0);
+                
+                let showLabel = false;
+                if (timePeriod === 'daily') {
+                  showLabel = true;
+                } else if (timePeriod === 'weekly') {
+                  showLabel = index % Math.max(1, Math.floor(chartData.length / 6)) === 0;
+                } else if (timePeriod === 'monthly') {
+                  showLabel = index % Math.max(1, Math.floor(chartData.length / 6)) === 0;
+                } else {
+                  showLabel = true;
+                }
 
-              return (
-                <View key={index} style={styles.barContainer}>
-                  <View style={[
-                    styles.bar,
-                    {
-                      height: barHeight,
-                      backgroundColor: item.value > 0 ? colors.primary : colors.surface,
-                    }
-                  ]} />
-                  {showLabel && (
-                    <Text style={[styles.barLabel, { color: colors.textTertiary }]}>
-                      {item.date.getDate()}
-                    </Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
+                return (
+                  <View key={index} style={styles.barContainer}>
+                    <View style={[
+                      styles.bar,
+                      {
+                        height: barHeight,
+                        backgroundColor: item.value > 0 ? colors.primary : colors.border,
+                      }
+                    ]} />
+                    {showLabel && (
+                      <Text style={[styles.barLabel, { color: colors.textTertiary }]}>
+                        {item.label}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.chartEmpty}>
+              <Text style={[styles.chartEmptyText, { color: colors.textSecondary }]}>No data available</Text>
+            </View>
+          )}
         </View>
 
         <View style={[styles.heatmapCard, { backgroundColor: colors.surface }]}>
@@ -393,18 +507,40 @@ export default function StatsScreen() {
             {timePeriod === 'daily' ? 'Last 7 days' : 
              timePeriod === 'weekly' ? 'Last 12 weeks' : 
              timePeriod === 'monthly' ? 'Last 6 months' : 
-             'All time activity'}
+             'Last 52 weeks'}
           </Text>
-          <View style={styles.heatmapGrid}>
-            {heatmapData.map((item, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.heatmapCell,
-                  { backgroundColor: getHeatmapColor(item.count) }
-                ]}
-              />
-            ))}
+          <View style={styles.heatmapContainer}>
+            <View style={styles.heatmapDayLabels}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                <Text key={i} style={[styles.heatmapDayLabel, { color: colors.textTertiary }]}>
+                  {day.charAt(0)}
+                </Text>
+              ))}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.heatmapScrollView}>
+              <View>
+                <View style={styles.heatmapGrid}>
+                  {Array.from({ length: heatmapData.weeks }).map((_, weekIndex) => (
+                    <View key={weekIndex} style={styles.heatmapColumn}>
+                      {Array.from({ length: 7 }).map((_, dayIndex) => {
+                        const dataIndex = weekIndex * 7 + dayIndex;
+                        const item = heatmapData.data[dataIndex];
+                        if (!item) return <View key={dayIndex} style={styles.heatmapCellGithub} />;
+                        return (
+                          <View
+                            key={dayIndex}
+                            style={[
+                              styles.heatmapCellGithub,
+                              { backgroundColor: getHeatmapColor(item.count) }
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
           </View>
           <View style={styles.heatmapLegend}>
             <Text style={[styles.heatmapLegendText, { color: colors.textTertiary }]}>Less</Text>
@@ -667,6 +803,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '500' as const,
   },
+  chartEmpty: {
+    height: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartEmptyText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+  },
   heatmapCard: {
     borderRadius: 20,
     padding: 20,
@@ -691,15 +836,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 16,
   },
-  heatmapGrid: {
+  heatmapContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 3,
     marginBottom: 12,
   },
-  heatmapCell: {
-    width: (width - 88) / 14,
-    height: (width - 88) / 14,
+  heatmapDayLabels: {
+    marginRight: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  heatmapDayLabel: {
+    fontSize: 9,
+    fontWeight: '500' as const,
+    height: 12,
+    lineHeight: 12,
+  },
+  heatmapScrollView: {
+    flex: 1,
+  },
+  heatmapGrid: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  heatmapColumn: {
+    flexDirection: 'column',
+    gap: 3,
+  },
+  heatmapCellGithub: {
+    width: 12,
+    height: 12,
     borderRadius: 2,
   },
   heatmapLegend: {

@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   heatmapCellDaily: {
-    width: 40,
+    width: 80,
     height: 16,
     borderRadius: 4,
     borderWidth: 1,

@@ -143,6 +143,9 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       }
       return [];
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const sessionsQuery = useQuery({
@@ -184,6 +187,9 @@ export const [ReadingProvider, useReading] = createContextHook(() => {
       }
       return [];
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const saveBooksM = useMutation({

@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { UserProfile, UserProfileDB, dbToProfile, profileToDb } from '@/types/user';
 
 const USER_PROFILE_KEY = 'readly_user_profile';
@@ -26,6 +26,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
           throw new Error('No authenticated user');
         }
 
+        console.log('Fetching profile for user:', user.id);
         const { data, error } = await supabase
           .from('user_profiles')
           .select('*')
@@ -39,7 +40,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
         
         if (data) {
           console.log('Profile loaded from Supabase:', data.name);
-          return dbToProfile(data as UserProfileDB);
+          const profile = dbToProfile(data as UserProfileDB);
+          await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+          return profile;
         }
       } catch (err) {
         console.log('Failed to load from Supabase, trying AsyncStorage:', err);
@@ -63,6 +66,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
     },
     retry: 1,
     retryDelay: 500,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const saveProfileM = useMutation({
@@ -87,6 +93,61 @@ export const [UserProvider, useUser] = createContextHook(() => {
   });
   const { mutate: saveProfile } = saveProfileM;
 
+  useEffect(() => {
+    let subscription: any;
+
+    const setupRealtimeSubscription = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        console.log('Setting up realtime subscription for user profile:', user.id);
+        
+        subscription = supabase
+          .channel('user_profile_changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'user_profiles',
+              filter: `id=eq.${user.id}`,
+            },
+            (payload) => {
+              console.log('Realtime user profile update received:', payload);
+              queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+            }
+          )
+          .subscribe((status) => {
+            console.log('Realtime subscription status:', status);
+          });
+      } catch (err) {
+        console.error('Failed to setup realtime subscription:', err);
+      }
+    };
+
+    setupRealtimeSubscription();
+
+    const authListener = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('User context auth state changed:', event);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('Refetching user profile after auth change');
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      } else if (event === 'SIGNED_OUT') {
+        console.log('Clearing user profile after sign out');
+        queryClient.setQueryData(['userProfile'], null);
+        AsyncStorage.removeItem(USER_PROFILE_KEY);
+      }
+    });
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+      authListener.data.subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     const currentProfile = profileQuery.data;
     if (!currentProfile) return;
@@ -104,5 +165,6 @@ export const [UserProvider, useUser] = createContextHook(() => {
     isLoading: profileQuery.isLoading,
     updateProfile,
     isSaving: saveProfileM.isPending,
-  }), [profileQuery.data, profileQuery.isLoading, updateProfile, saveProfileM.isPending]);
+    refetch: profileQuery.refetch,
+  }), [profileQuery.data, profileQuery.isLoading, updateProfile, saveProfileM.isPending, profileQuery.refetch]);
 });

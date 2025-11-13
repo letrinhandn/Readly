@@ -67,7 +67,6 @@ export default function StatsScreen() {
     now.setHours(0, 0, 0, 0);
 
     const sessionsByDay = new Map<string, number>();
-    const daysWithActivity = new Set<string>();
     
     filtered.forEach(s => {
       const sessionDate = new Date(s.endTime!);
@@ -75,7 +74,6 @@ export default function StatsScreen() {
       const key = sessionDate.toDateString();
       const value = metricType === 'pages' ? s.pagesRead : s.duration;
       sessionsByDay.set(key, (sessionsByDay.get(key) || 0) + value);
-      daysWithActivity.add(key);
     });
 
     const data: { label: string; value: number; index: number }[] = [];
@@ -101,19 +99,17 @@ export default function StatsScreen() {
           weekStart.setDate(startDate.getDate() + (i * 7));
           weekStart.setHours(0, 0, 0, 0);
           
-          let daysReadInWeek = 0;
+          let weekTotal = 0;
           for (let day = 0; day < 7; day++) {
             const checkDate = new Date(weekStart);
             checkDate.setDate(weekStart.getDate() + day);
             const key = checkDate.toDateString();
-            if (daysWithActivity.has(key)) {
-              daysReadInWeek++;
-            }
+            weekTotal += sessionsByDay.get(key) || 0;
           }
           
           data.push({ 
             label: `${i + 1}`, 
-            value: daysReadInWeek,
+            value: weekTotal,
             index: i + 1
           });
         }
@@ -129,7 +125,7 @@ export default function StatsScreen() {
           const month = monthStart.getMonth();
           const year = monthStart.getFullYear();
           
-          let daysReadInMonth = 0;
+          let monthTotal = 0;
           const daysInMonth = new Date(year, month + 1, 0).getDate();
           
           for (let day = 1; day <= daysInMonth; day++) {
@@ -138,16 +134,14 @@ export default function StatsScreen() {
             
             if (checkDate <= now) {
               const dayKey = checkDate.toDateString();
-              if (daysWithActivity.has(dayKey)) {
-                daysReadInMonth++;
-              }
+              monthTotal += sessionsByDay.get(dayKey) || 0;
             }
           }
           
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           data.push({ 
             label: monthNames[month], 
-            value: daysReadInMonth,
+            value: monthTotal,
             index: i + 1
           });
         }
@@ -162,7 +156,7 @@ export default function StatsScreen() {
           
           for (let i = 0; i < years; i++) {
             const year = startYear + i;
-            let daysReadInYear = 0;
+            let yearTotal = 0;
             
             for (let month = 0; month < 12; month++) {
               const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -172,16 +166,14 @@ export default function StatsScreen() {
                 
                 if (checkDate <= now) {
                   const dayKey = checkDate.toDateString();
-                  if (daysWithActivity.has(dayKey)) {
-                    daysReadInYear++;
-                  }
+                  yearTotal += sessionsByDay.get(dayKey) || 0;
                 }
               }
             }
             
             data.push({ 
               label: year.toString(), 
-              value: daysReadInYear,
+              value: yearTotal,
               index: i + 1
             });
           }

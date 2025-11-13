@@ -2,18 +2,22 @@ import React, { useRef, useState } from 'react';
 import { Platform , View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 
 import { router } from 'expo-router';
-import { X, Share2, Download } from 'lucide-react-native';
+import { X, Share2, Download, Crown, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import Colors from '@/constants/colors';
 import { useReading } from '@/contexts/reading-context';
+import ShareDailyCard from '@/components/ShareDailyCard';
+import { shareThemes, ShareThemeType, freeThemes, premiumThemes } from '@/constants/share-themes';
 
 export default function ShareCardScreen() {
   const { currentBooks, stats } = useReading();
   const cardRef = useRef<View>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<ShareThemeType>('minimal-light');
+  const [isPremiumUser] = useState(false);
 
   const currentBook = currentBooks[0];
 
@@ -98,6 +102,32 @@ export default function ShareCardScreen() {
     }
   };
 
+  const handleThemeSelect = (themeId: ShareThemeType) => {
+    const theme = shareThemes[themeId];
+    if (theme.isPremium && !isPremiumUser) {
+      Alert.alert('Premium Theme', 'Please upgrade to premium to unlock all themes!');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedTheme(themeId);
+  };
+
+  if (!currentBook) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No reading session available</Text>
+      </View>
+    );
+  }
+
+  const sessionData = {
+    duration: currentBook.totalMinutesRead || 0,
+    pagesRead: currentBook.currentPage,
+    date: new Date().toISOString(),
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -117,51 +147,100 @@ export default function ShareCardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.cardContainer} collapsable={false} ref={cardRef}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>My Reading Journey</Text>
-              <Text style={styles.cardSubtitle}>Reading Ritual</Text>
-            </View>
+          <ShareDailyCard
+            book={currentBook}
+            session={sessionData}
+            streak={stats.currentStreak}
+            theme={selectedTheme}
+          />
+        </View>
 
-            {currentBook && (
-              <View style={styles.currentBookSection}>
-                <Text style={styles.sectionLabel}>Currently Reading</Text>
-                <View style={styles.bookCard}>
-                  <View style={styles.bookContent}>
-                    <Text style={styles.bookTitle} numberOfLines={2}>
-                      {currentBook.title}
-                    </Text>
-                    <Text style={styles.bookAuthor}>{currentBook.author}</Text>
-                  </View>
-                  <View style={styles.progressCircle}>
-                    <Text style={styles.progressPercent}>
-                      {Math.round((currentBook.currentPage / currentBook.totalPages) * 100)}%
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
+        <View style={styles.themesSection}>
+          <Text style={styles.sectionTitle}>Choose Theme</Text>
+          
+          <Text style={styles.themeCategory}>Free Themes</Text>
+          <View style={styles.themeGrid}>
+            {freeThemes.map((themeId) => {
+              const theme = shareThemes[themeId];
+              const isSelected = selectedTheme === themeId;
+              return (
+                <TouchableOpacity
+                  key={themeId}
+                  style={[
+                    styles.themeItem,
+                    { 
+                      backgroundColor: theme.colors.cardBackground,
+                      borderColor: isSelected ? Colors.light.primary : Colors.light.border,
+                      borderWidth: isSelected ? 3 : 1,
+                    },
+                  ]}
+                  onPress={() => handleThemeSelect(themeId)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.themePreview,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  />
+                  <Text style={[styles.themeName, { color: theme.colors.text }]} numberOfLines={1}>
+                    {theme.name}
+                  </Text>
+                  {isSelected && (
+                    <View style={styles.selectedBadge}>
+                      <Check size={14} color="#FFF" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-            <View style={styles.statsSection}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.currentStreak}</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.totalPagesRead}</Text>
-                <Text style={styles.statLabel}>Pages Read</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.totalBooksRead}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <Text style={styles.footerText}>Keep reading, keep growing 📚</Text>
-            </View>
+          <Text style={styles.themeCategory}>
+            Premium Themes {!isPremiumUser && '(Upgrade to Unlock)'}
+          </Text>
+          <View style={styles.themeGrid}>
+            {premiumThemes.map((themeId) => {
+              const theme = shareThemes[themeId];
+              const isSelected = selectedTheme === themeId;
+              const isLocked = !isPremiumUser;
+              return (
+                <TouchableOpacity
+                  key={themeId}
+                  style={[
+                    styles.themeItem,
+                    { 
+                      backgroundColor: theme.colors.cardBackground,
+                      borderColor: isSelected ? Colors.light.primary : Colors.light.border,
+                      borderWidth: isSelected ? 3 : 1,
+                      opacity: isLocked ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={() => handleThemeSelect(themeId)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.themePreview,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  />
+                  <Text style={[styles.themeName, { color: theme.colors.text }]} numberOfLines={1}>
+                    {theme.name}
+                  </Text>
+                  {isLocked && (
+                    <View style={styles.lockBadge}>
+                      <Crown size={14} color="#FFD700" strokeWidth={2.5} fill="#FFD700" />
+                    </View>
+                  )}
+                  {isSelected && !isLocked && (
+                    <View style={styles.selectedBadge}>
+                      <Check size={14} color="#FFF" strokeWidth={3} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -226,9 +305,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+    alignItems: 'center',
   },
   cardContainer: {
     marginBottom: 32,
+    transform: [{ scale: 0.85 }],
   },
   card: {
     backgroundColor: Colors.light.primary,
@@ -366,5 +447,71 @@ const styles = StyleSheet.create({
   },
   actionButtonTextSecondary: {
     color: Colors.light.primary,
+  },
+  themesSection: {
+    width: '100%',
+    maxWidth: 600,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    marginBottom: 16,
+    letterSpacing: -0.5,
+    color: Colors.light.text,
+  },
+  themeCategory: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    marginTop: 16,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: Colors.light.textSecondary,
+  },
+  themeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  themeItem: {
+    width: 110,
+    height: 100,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  themePreview: {
+    width: '100%',
+    height: 60,
+  },
+  themeName: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    padding: 8,
+    textAlign: 'center',
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+    padding: 4,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+    marginTop: 100,
+    color: Colors.light.text,
   },
 });

@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { BookOpen, Clock, Flame, Calendar } from 'lucide-react-native';
+import { BookOpen, Clock, Flame, Calendar, BookMarked } from 'lucide-react-native';
 import { Book } from '@/types/book';
 import { shareThemes, ShareThemeType } from '@/constants/share-themes';
 
@@ -131,6 +131,15 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             Keep the momentum going! 🌟
           </Text>
+        </View>
+
+        <View style={[styles.branding, { borderTopColor: colors.border }]}>
+          <View style={styles.brandingContent}>
+            <BookMarked size={16} color={colors.textSecondary} strokeWidth={2} />
+            <Text style={[styles.brandingText, { color: colors.textSecondary }]}>
+              Made with Readly
+            </Text>
+          </View>
         </View>
       </View>
     </View>
@@ -298,6 +307,22 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  branding: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  brandingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandingText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.3,
   },
 });
 

@@ -1,30 +1,41 @@
 import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { BookOpen, Clock, Award, Flame, User } from 'lucide-react-native';
-import { useTheme } from '@/contexts/theme-context';
 import { UserProfile } from '@/types/user';
 import { ReadingStats } from '@/types/book';
+import { shareThemes, ShareThemeType } from '@/constants/share-themes';
 
 interface ShareProfileCardProps {
   profile: UserProfile;
   stats: ReadingStats;
   completedBooks?: { id: string; title: string; coverUrl?: string; thumbnail?: string }[];
+  theme?: ShareThemeType;
 }
 
 const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
-  ({ profile, stats, completedBooks = [] }, ref) => {
-    const { colors, isDark } = useTheme();
+  ({ profile, stats, completedBooks = [], theme = 'minimal-light' }, ref) => {
+    const shareTheme = shareThemes[theme];
+    const colors = shareTheme.colors;
+
+    const renderBackground = () => {
+      if (shareTheme.gradients?.header) {
+        return {
+          backgroundColor: shareTheme.gradients.header[0],
+        };
+      }
+      return { backgroundColor: colors.primary };
+    };
 
     return (
       <View
         ref={ref}
-        style={[styles.card, { backgroundColor: isDark ? '#1A1613' : '#FFFFFF' }]}
+        style={[styles.card, { backgroundColor: colors.cardBackground }]}
         collapsable={false}
       >
-        <View style={[styles.gradientHeader, { backgroundColor: colors.primary }]}>
+        <View style={[styles.gradientHeader, renderBackground()]}>
           <View style={styles.headerTop}>
             <View style={styles.profileSection}>
-              <View style={[styles.avatarContainer, { backgroundColor: colors.surface }]}>
+              <View style={[styles.avatarContainer, { backgroundColor: '#FFFFFF' }]}>
                 {profile.profileImage && profile.profileImage.length > 0 ? (
                   <Image
                     source={{ uri: profile.profileImage }}
@@ -45,7 +56,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
 
         <View style={styles.content}>
           {profile.bio && (
-            <View style={[styles.bioSection, { backgroundColor: colors.surfaceSecondary }]}>
+            <View style={[styles.bioSection, { backgroundColor: colors.secondary + '20' }]}>
               <Text style={[styles.bioText, { color: colors.text }]}>{profile.bio}</Text>
             </View>
           )}
@@ -76,8 +87,8 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
             </View>
 
             <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: colors.success + '15' }]}>
-                <Flame size={24} color={colors.success} strokeWidth={2.5} fill={colors.success} />
+              <View style={[styles.statIcon, { backgroundColor: colors.accent + '15' }]}>
+                <Flame size={24} color={colors.accent} strokeWidth={2.5} fill={colors.accent} />
               </View>
               <Text style={[styles.statValue, { color: colors.text }]}>
                 {stats.currentStreak}
@@ -88,8 +99,8 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
             </View>
 
             <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: colors.warning + '15' }]}>
-                <Award size={24} color={colors.warning} strokeWidth={2.5} />
+              <View style={[styles.statIcon, { backgroundColor: colors.secondary + '15' }]}>
+                <Award size={24} color={colors.secondary} strokeWidth={2.5} />
               </View>
               <Text style={[styles.statValue, { color: colors.text }]}>
                 {stats.totalPagesRead}
@@ -107,7 +118,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
               </Text>
               <View style={styles.booksGrid}>
                 {completedBooks.slice(0, 6).map((book) => (
-                  <View key={book.id} style={[styles.bookCover, { backgroundColor: colors.surfaceSecondary }]}>
+                  <View key={book.id} style={[styles.bookCover, { backgroundColor: colors.secondary + '20' }]}>
                     {(book.coverUrl && book.coverUrl.length > 0) || (book.thumbnail && book.thumbnail.length > 0) ? (
                       <Image
                         source={{ uri: book.coverUrl || book.thumbnail }}
@@ -116,7 +127,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
                       />
                     ) : (
                       <View style={styles.bookCoverPlaceholder}>
-                        <BookOpen size={20} color={colors.textTertiary} strokeWidth={1.5} />
+                        <BookOpen size={20} color={colors.textSecondary} strokeWidth={1.5} />
                       </View>
                     )}
                   </View>
@@ -126,7 +137,7 @@ const ShareProfileCard = forwardRef<View, ShareProfileCardProps>(
           )}
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
               Join me on my reading journey 📚
             </Text>
           </View>

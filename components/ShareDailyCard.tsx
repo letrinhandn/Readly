@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { BookOpen, Clock, Flame, Calendar } from 'lucide-react-native';
 import { Book } from '@/types/book';
-import { useTheme } from '@/contexts/theme-context';
+import { shareThemes, ShareThemeType } from '@/constants/share-themes';
 
 interface ShareDailyCardProps {
   book: Book;
@@ -12,10 +12,12 @@ interface ShareDailyCardProps {
     date: string;
   };
   streak?: number;
+  theme?: ShareThemeType;
 }
 
-const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, streak = 0 }, ref) => {
-  const { colors, isDark } = useTheme();
+const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, streak = 0, theme = 'minimal-light' }, ref) => {
+  const shareTheme = shareThemes[theme];
+  const colors = shareTheme.colors;
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -27,15 +29,22 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
     });
   };
 
+  const renderBackground = () => {
+    if (shareTheme.gradients?.header) {
+      return {
+        backgroundColor: shareTheme.gradients.header[0],
+      };
+    }
+    return { backgroundColor: colors.primary };
+  };
+
   return (
     <View 
       ref={ref} 
-      style={[styles.card, { backgroundColor: isDark ? '#1A1613' : '#FFFFFF' }]}
+      style={[styles.card, { backgroundColor: colors.cardBackground }]}
       collapsable={false}
     >
-      <View style={[styles.gradientHeader, { 
-        backgroundColor: colors.primary,
-      }]}>
+      <View style={[styles.gradientHeader, renderBackground()]}>
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.appName}>Readly</Text>
@@ -51,7 +60,7 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
       </View>
 
       <View style={styles.content}>
-        <View style={[styles.dateSection, { backgroundColor: colors.surfaceSecondary }]}>
+        <View style={[styles.dateSection, { backgroundColor: colors.secondary + '20' }]}>
           <Calendar size={16} color={colors.primary} strokeWidth={2} />
           <Text style={[styles.dateText, { color: colors.text }]}>
             {formatDate(session.date)}
@@ -67,13 +76,13 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
                 resizeMode="cover"
               />
             ) : (
-              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
+              <View style={[styles.coverPlaceholder, { backgroundColor: colors.secondary + '20' }]}>
                 <BookOpen size={28} color={colors.primary} strokeWidth={1.5} />
               </View>
             )}
             
             <View style={styles.bookInfo}>
-              <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
                 TODAY I READ
               </Text>
               <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
@@ -86,7 +95,7 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
           </View>
         </View>
 
-        <View style={[styles.sessionStats, { backgroundColor: colors.surfaceSecondary }]}>
+        <View style={[styles.sessionStats, { backgroundColor: colors.secondary + '20' }]}>
           <View style={styles.sessionStatItem}>
             <View style={[styles.statIconContainer, { backgroundColor: colors.primary + '20' }]}>
               <Clock size={20} color={colors.primary} strokeWidth={2.5} />
@@ -104,8 +113,8 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
           <View style={[styles.sessionDivider, { backgroundColor: colors.border }]} />
 
           <View style={styles.sessionStatItem}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.success + '20' }]}>
-              <BookOpen size={20} color={colors.success} strokeWidth={2.5} />
+            <View style={[styles.statIconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <BookOpen size={20} color={colors.accent} strokeWidth={2.5} />
             </View>
             <View style={styles.statTextContainer}>
               <Text style={[styles.statValue, { color: colors.text }]}>
@@ -119,7 +128,7 @@ const ShareDailyCard = forwardRef<View, ShareDailyCardProps>(({ book, session, s
         </View>
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             Keep the momentum going! 🌟
           </Text>
         </View>

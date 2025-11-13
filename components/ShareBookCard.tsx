@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { BookOpen, Calendar } from 'lucide-react-native';
 import { Book } from '@/types/book';
-import { useTheme } from '@/contexts/theme-context';
+import { shareThemes, ShareThemeType } from '@/constants/share-themes';
 
 interface ShareBookCardProps {
   book: Book;
@@ -11,23 +11,32 @@ interface ShareBookCardProps {
     totalPages: number;
     sessionCount: number;
   };
+  theme?: ShareThemeType;
 }
 
-const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref) => {
-  const { colors, isDark } = useTheme();
+const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats, theme = 'minimal-light' }, ref) => {
+  const shareTheme = shareThemes[theme];
+  const colors = shareTheme.colors;
   
   const progress = Math.round((book.currentPage / book.totalPages) * 100);
   const isCompleted = book.status === 'completed';
 
+  const renderBackground = () => {
+    if (shareTheme.gradients?.header) {
+      return {
+        backgroundColor: shareTheme.gradients.header[0],
+      };
+    }
+    return { backgroundColor: colors.primary };
+  };
+
   return (
     <View 
       ref={ref} 
-      style={[styles.card, { backgroundColor: isDark ? '#1A1613' : '#FFFFFF' }]}
+      style={[styles.card, { backgroundColor: colors.cardBackground }]}
       collapsable={false}
     >
-      <View style={[styles.gradientHeader, { 
-        backgroundColor: colors.primary,
-      }]}>
+      <View style={[styles.gradientHeader, renderBackground()]}>
         <Text style={styles.appName}>Readly</Text>
         <Text style={styles.headerSubtitle}>Reading Journey</Text>
       </View>
@@ -42,7 +51,7 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
                 resizeMode="cover"
               />
             ) : (
-              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
+              <View style={[styles.coverPlaceholder, { backgroundColor: colors.secondary + '20' }]}>
                 <BookOpen size={32} color={colors.primary} strokeWidth={1.5} />
               </View>
             )}
@@ -57,7 +66,7 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
             </View>
           </View>
 
-          <View style={[styles.progressSection, { backgroundColor: colors.surfaceSecondary }]}>
+          <View style={[styles.progressSection, { backgroundColor: colors.secondary + '20' }]}>
             <View style={styles.progressHeader}>
               <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
                 {isCompleted ? 'Completed!' : 'Progress'}
@@ -74,7 +83,7 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
                 ]} 
               />
             </View>
-            <Text style={[styles.pagesText, { color: colors.textTertiary }]}>
+            <Text style={[styles.pagesText, { color: colors.textSecondary }]}>
               {book.currentPage} / {book.totalPages} pages
             </Text>
           </View>
@@ -115,8 +124,8 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
 
         {book.startedAt && (
           <View style={styles.dateSection}>
-            <View style={[styles.dateRow, { backgroundColor: colors.surfaceSecondary }]}>
-              <Calendar size={14} color={colors.textTertiary} strokeWidth={2} />
+            <View style={[styles.dateRow, { backgroundColor: colors.secondary + '20' }]}>
+              <Calendar size={14} color={colors.textSecondary} strokeWidth={2} />
               <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                 Started {new Date(book.startedAt).toLocaleDateString('en-US', { 
                   month: 'short', 
@@ -129,7 +138,7 @@ const ShareBookCard = forwardRef<View, ShareBookCardProps>(({ book, stats }, ref
         )}
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             Every page is a step forward 📖
           </Text>
         </View>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions, AppState } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Modal, Alert, TextInput, ScrollView, Dimensions, AppState, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { X, Play, Pause, Check, Share2, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -669,10 +669,17 @@ export default function FocusSessionScreen() {
         visible={showCompleteForm}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowCompleteForm(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setShowCompleteForm(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableWithoutFeedback onPress={() => {
+          Keyboard.dismiss();
+        }}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Complete Session</Text>
             <Text style={styles.modalSubtitle}>Enter pages read or the last page number</Text>
 
@@ -729,15 +736,23 @@ export default function FocusSessionScreen() {
             </View>
 
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-              <TouchableOpacity style={[styles.skipButton, { flex: 1 }]} onPress={() => setShowCompleteForm(false)}>
+              <TouchableOpacity style={[styles.skipButton, { flex: 1 }]} onPress={() => {
+                Keyboard.dismiss();
+                setShowCompleteForm(false);
+              }}>
                 <Text style={styles.skipButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.shareButton, { flex: 1 }]} onPress={confirmComplete}>
+              <TouchableOpacity style={[styles.shareButton, { flex: 1 }]} onPress={() => {
+                Keyboard.dismiss();
+                confirmComplete();
+              }}>
                 <Text style={styles.shareButtonText}>Confirm</Text>
               </TouchableOpacity>
             </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );

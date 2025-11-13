@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router';
 import { Flame, BookOpen, Clock, TrendingUp, Calendar } from 'lucide-react-native';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 
-const { width } = Dimensions.get('window');
+
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 type MetricType = 'pages' | 'minutes';
 type StreakPeriod = 'week' | 'month' | 'year';
@@ -70,17 +70,20 @@ export default function StatsScreen() {
     
     filtered.forEach(s => {
       const sessionDate = new Date(s.endTime!);
+      sessionDate.setHours(0, 0, 0, 0);
       let key: string;
       
       switch (timePeriod) {
         case 'daily':
           key = sessionDate.toDateString();
           break;
-        case 'weekly':
+        case 'weekly': {
           const weekStart = new Date(sessionDate);
           weekStart.setDate(sessionDate.getDate() - sessionDate.getDay());
+          weekStart.setHours(0, 0, 0, 0);
           key = weekStart.toDateString();
           break;
+        }
         case 'monthly':
           key = `${sessionDate.getFullYear()}-${sessionDate.getMonth()}`;
           break;
@@ -112,12 +115,21 @@ export default function StatsScreen() {
       case 'weekly': {
         const weeks = Math.ceil(dayCount / 7);
         for (let i = 0; i < weeks; i++) {
-          const date = new Date(startDate);
-          date.setDate(startDate.getDate() + (i * 7));
-          const key = date.toDateString();
+          const weekStart = new Date(startDate);
+          weekStart.setDate(startDate.getDate() + (i * 7));
+          weekStart.setHours(0, 0, 0, 0);
+          
+          let weekTotal = 0;
+          for (let day = 0; day < 7; day++) {
+            const checkDate = new Date(weekStart);
+            checkDate.setDate(weekStart.getDate() + day);
+            const key = checkDate.toDateString();
+            weekTotal += sessionsByPeriod.get(key) || 0;
+          }
+          
           data.push({ 
             label: `${i + 1}`, 
-            value: sessionsByPeriod.get(key) || 0,
+            value: weekTotal,
             index: i + 1
           });
         }
@@ -126,11 +138,12 @@ export default function StatsScreen() {
       case 'monthly': {
         const months = Math.ceil(dayCount / 30);
         for (let i = 0; i < months; i++) {
-          const date = new Date(startDate);
-          date.setMonth(startDate.getMonth() + i);
-          const month = date.getMonth();
-          const year = date.getFullYear();
+          const monthStart = new Date(startDate);
+          monthStart.setMonth(startDate.getMonth() + i);
+          const month = monthStart.getMonth();
+          const year = monthStart.getFullYear();
           const key = `${year}-${month}`;
+          
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           data.push({ 
             label: monthNames[month], 
@@ -183,7 +196,6 @@ export default function StatsScreen() {
         weeks = 52;
     }
 
-    const endDate = new Date(today);
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - (weeks * 7) + 1);
     
@@ -193,7 +205,7 @@ export default function StatsScreen() {
     }
 
     const sessionsByDay = new Map<string, number>();
-    completedSessions.forEach(s => {
+    sessions.filter(s => s.endTime).forEach(s => {
       const date = new Date(s.endTime!);
       date.setHours(0, 0, 0, 0);
       const key = date.toISOString().split('T')[0];
@@ -213,7 +225,7 @@ export default function StatsScreen() {
     }
 
     return { data, weeks, totalDays };
-  }, [completedSessions, timePeriod]);
+  }, [sessions, timePeriod]);
 
   const periodStats = useMemo(() => {
     const { sessions: filtered } = periodData;

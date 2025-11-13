@@ -90,12 +90,32 @@ export default function StatsScreen() {
 
   const heatmapData = useMemo(() => {
     const today = new Date();
+    let dayCount: number;
+    
+    switch (timePeriod) {
+      case 'daily':
+        dayCount = 7;
+        break;
+      case 'weekly':
+        dayCount = 84;
+        break;
+      case 'monthly':
+        dayCount = 180;
+        break;
+      default:
+        const oldestSession = completedSessions.length > 0 
+          ? Math.min(...completedSessions.map(s => new Date(s.endTime!).getTime()))
+          : today.getTime();
+        const diffTime = Math.abs(today.getTime() - oldestSession);
+        dayCount = Math.min(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 365);
+    }
+
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 83);
+    startDate.setDate(today.getDate() - (dayCount - 1));
     startDate.setHours(0, 0, 0, 0);
 
     const data: { date: Date; count: number }[] = [];
-    for (let i = 0; i < 84; i++) {
+    for (let i = 0; i < dayCount; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       const dayStart = new Date(date);
@@ -112,7 +132,7 @@ export default function StatsScreen() {
     }
 
     return data;
-  }, [completedSessions]);
+  }, [completedSessions, timePeriod]);
 
   const periodStats = useMemo(() => {
     const { sessions: filtered } = periodData;
@@ -166,13 +186,38 @@ export default function StatsScreen() {
     };
   }, [streakPeriod, completedSessions, stats]);
 
-  const completedBooks = useMemo(() => 
-    books.filter(b => b.status === 'completed').sort((a, b) => {
+  const getStreakLabel = () => {
+    switch (streakPeriod) {
+      case 'week': return 'Weekly Streak';
+      case 'month': return 'Monthly Streak';
+      case 'year': return 'Yearly Streak';
+    }
+  };
+
+  const getPeriodLabel = () => {
+    switch (timePeriod) {
+      case 'daily': return 'Daily';
+      case 'weekly': return 'Weekly';
+      case 'monthly': return 'Monthly';
+      case 'all': return 'All Time';
+    }
+  };
+
+  const completedBooks = useMemo(() => {
+    const allCompleted = books.filter(b => b.status === 'completed');
+    const { startDate } = periodData;
+    
+    const filtered = allCompleted.filter(book => {
+      if (!book.lastReadAt) return false;
+      return new Date(book.lastReadAt) >= startDate;
+    });
+
+    return filtered.sort((a, b) => {
       const dateA = a.lastReadAt ? new Date(a.lastReadAt).getTime() : 0;
       const dateB = b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0;
       return dateB - dateA;
-    }), [books]
-  );
+    });
+  }, [books, periodData]);
 
   const maxChartValue = Math.max(...chartData.map(d => d.value), 1);
 
@@ -228,7 +273,7 @@ export default function StatsScreen() {
           </View>
           <View style={styles.streakContent}>
             <Text style={[styles.streakValue, { color: colors.surface }]}>{streakStats.daysActive}</Text>
-            <Text style={[styles.streakLabel, { color: colors.surface }]}>Day Streak</Text>
+            <Text style={[styles.streakLabel, { color: colors.surface }]}>{getStreakLabel()}</Text>
             {streakStats.longestStreak > streakStats.currentStreak && (
               <Text style={styles.streakBest}>Best: {streakStats.longestStreak} days</Text>
             )}
@@ -259,7 +304,7 @@ export default function StatsScreen() {
         </View>
 
         <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>Reading Summary</Text>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>{getPeriodLabel()} Reading Summary</Text>
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryValue, { color: colors.primary }]}>{periodStats.sessions}</Text>
@@ -285,7 +330,7 @@ export default function StatsScreen() {
 
         <View style={[styles.chartCard, { backgroundColor: colors.surface }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.text }]}>Daily Progress</Text>
+            <Text style={[styles.chartTitle, { color: colors.text }]}>{getPeriodLabel()} Progress</Text>
             <View style={styles.metricToggle}>
               <TouchableOpacity
                 onPress={() => setMetricType('pages')}
@@ -341,10 +386,15 @@ export default function StatsScreen() {
 
         <View style={[styles.heatmapCard, { backgroundColor: colors.surface }]}>
           <View style={styles.heatmapHeader}>
-            <Text style={[styles.heatmapTitle, { color: colors.text }]}>Activity Heatmap</Text>
+            <Text style={[styles.heatmapTitle, { color: colors.text }]}>{getPeriodLabel()} Heatmap</Text>
             <Calendar size={18} color={colors.textSecondary} strokeWidth={2} />
           </View>
-          <Text style={[styles.heatmapSubtitle, { color: colors.textSecondary }]}>Last 12 weeks</Text>
+          <Text style={[styles.heatmapSubtitle, { color: colors.textSecondary }]}>
+            {timePeriod === 'daily' ? 'Last 7 days' : 
+             timePeriod === 'weekly' ? 'Last 12 weeks' : 
+             timePeriod === 'monthly' ? 'Last 6 months' : 
+             'All time activity'}
+          </Text>
           <View style={styles.heatmapGrid}>
             {heatmapData.map((item, index) => (
               <View
@@ -373,7 +423,7 @@ export default function StatsScreen() {
 
         <View style={[styles.booksCompletedCard, { backgroundColor: colors.surface }]}>
           <View style={styles.booksCompletedHeader}>
-            <Text style={[styles.booksCompletedTitle, { color: colors.text }]}>Books Completed</Text>
+            <Text style={[styles.booksCompletedTitle, { color: colors.text }]}>{getPeriodLabel()} Books Completed</Text>
             <View style={[styles.booksCompletedBadge, { backgroundColor: colors.primary + '15' }]}>
               <Text style={[styles.booksCompletedCount, { color: colors.primary }]}>
                 {completedBooks.length}

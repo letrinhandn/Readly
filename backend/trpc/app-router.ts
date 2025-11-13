@@ -4,6 +4,8 @@ import getSessionsRoute from "@/backend/trpc/routes/journal/get-sessions";
 import createSessionRoute from "@/backend/trpc/routes/journal/create-session";
 import getStatsRoute from "@/backend/trpc/routes/journal/get-stats";
 import deleteSessionRoute from "@/backend/trpc/routes/journal/delete-session";
+import addCommentRoute from "@/backend/trpc/routes/journal/add-comment";
+import getCommentsRoute from "@/backend/trpc/routes/journal/get-comments";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -14,6 +16,8 @@ export const appRouter = createTRPCRouter({
     createSession: createSessionRoute,
     getStats: getStatsRoute,
     deleteSession: deleteSessionRoute,
+    addComment: addCommentRoute,
+    getComments: getCommentsRoute,
   }),
 });
 

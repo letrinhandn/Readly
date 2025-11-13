@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Modal, Alert, TextInput, Keyboard } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2, Edit2 } from 'lucide-react-native';
+import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2, Edit2, MessageCircle, Send, Search, X, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -15,6 +15,11 @@ export default function BookDetailScreen() {
   const { colors } = useTheme();
   const [showShareModal, setShowShareModal] = useState(false);
   const shareCardRef = useRef<View>(null);
+  const [commentText, setCommentText] = useState('');
+  const [activeCommentSessionId, setActiveCommentSessionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const book = books.find(b => b.id === id);
   const bookSessions = useMemo(() => {
@@ -24,9 +29,30 @@ export default function BookDetailScreen() {
       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   }, [book, sessions]);
 
+  const filteredSessions = useMemo(() => {
+    let filtered = bookSessions;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = bookSessions.filter(s => 
+        s.reflection?.toLowerCase().includes(query) ||
+        s.location?.toLowerCase().includes(query) ||
+        s.mood?.toLowerCase().includes(query)
+      );
+    }
+    
+    const sorted = [...filtered].sort((a, b) => {
+      const timeA = new Date(a.startTime).getTime();
+      const timeB = new Date(b.startTime).getTime();
+      return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+    
+    return sorted;
+  }, [bookSessions, searchQuery, sortOrder]);
+
   const groupedSessions = useMemo(() => {
-    const groups: { [key: string]: typeof bookSessions } = {};
-    bookSessions.forEach(session => {
+    const groups: { [key: string]: typeof filteredSessions } = {};
+    filteredSessions.forEach(session => {
       const date = new Date(session.startTime);
       const dateKey = date.toLocaleDateString('en-US', { 
         weekday: 'long', 
@@ -40,7 +66,7 @@ export default function BookDetailScreen() {
       groups[dateKey].push(session);
     });
     return groups;
-  }, [bookSessions]);
+  }, [filteredSessions]);
 
   const stats = useMemo(() => {
     const totalMinutes = bookSessions.reduce((sum, s) => sum + s.duration, 0);
@@ -244,8 +270,22 @@ export default function BookDetailScreen() {
 
         {book.description && (
           <View style={[styles.descriptionCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
-            <Text style={[styles.description, { color: colors.textSecondary }]}>
+            <TouchableOpacity 
+              onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              style={styles.descriptionHeader}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
+              {isDescriptionExpanded ? (
+                <ChevronUp size={20} color={colors.textSecondary} strokeWidth={2} />
+              ) : (
+                <ChevronDown size={20} color={colors.textSecondary} strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+            <Text 
+              style={[styles.description, { color: colors.textSecondary }]}
+              numberOfLines={isDescriptionExpanded ? undefined : 3}
+            >
               {book.description}
             </Text>
           </View>
@@ -282,7 +322,36 @@ export default function BookDetailScreen() {
 
         {Object.keys(groupedSessions).length > 0 && (
           <View style={styles.journalSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Reading Journal</Text>
+            <View style={styles.journalHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Reading Journal</Text>
+              <View style={styles.journalControls}>
+                <TouchableOpacity
+                  onPress={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+                  style={[styles.sortButton, { backgroundColor: colors.surfaceSecondary }]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.sortButtonText, { color: colors.textSecondary }]}>
+                    {sortOrder === 'newest' ? '↓ Newest' : '↑ Oldest'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={[styles.searchContainer, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+              <Search size={16} color={colors.textTertiary} strokeWidth={2} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search threads..."
+                placeholderTextColor={colors.textTertiary}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={16} color={colors.textTertiary} strokeWidth={2} />
+                </TouchableOpacity>
+              )}
+            </View>
             {Object.entries(groupedSessions).map(([date, daySessions]) => (
               <View key={date} style={[styles.dayGroup, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.dayDate, { color: colors.text }]}>{date}</Text>
@@ -311,11 +380,84 @@ export default function BookDetailScreen() {
                       </Text>
 
                       {session.reflection ? (
-                        <View style={[styles.reflectionBubble, { backgroundColor: colors.surface }]}>
+                        <View style={[styles.reflectionBubble, { backgroundColor: colors.surfaceSecondary }]}>
                           <Text style={[styles.sessionReflection, { color: colors.text }]}>{session.reflection}</Text>
                           <Text style={[styles.reflectionMeta, { color: colors.textSecondary }]}>{formatTime(session.startTime)}</Text>
                         </View>
                       ) : null}
+
+                      {session.comments && session.comments.length > 0 && (
+                        <View style={styles.commentsContainer}>
+                          {session.comments.map((comment) => (
+                            <View key={comment.id} style={[styles.commentBubble, { backgroundColor: colors.surface }]}>
+                              <Text style={[styles.commentText, { color: colors.text }]}>{comment.text}</Text>
+                              <Text style={[styles.commentTime, { color: colors.textTertiary }]}>
+                                {formatTime(comment.createdAt)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setActiveCommentSessionId(session.id);
+                          if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }
+                        }}
+                        style={styles.commentButton}
+                        activeOpacity={0.7}
+                      >
+                        <MessageCircle size={14} color={colors.textTertiary} strokeWidth={2} />
+                        <Text style={[styles.commentButtonText, { color: colors.textTertiary }]}>Add comment</Text>
+                      </TouchableOpacity>
+
+                      {activeCommentSessionId === session.id && (
+                        <View style={[styles.commentInputContainer, { backgroundColor: colors.surface }]}>
+                          <TextInput
+                            style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
+                            value={commentText}
+                            onChangeText={setCommentText}
+                            placeholder="Write a comment..."
+                            placeholderTextColor={colors.textTertiary}
+                            multiline
+                            autoFocus
+                          />
+                          <View style={styles.commentActions}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setActiveCommentSessionId(null);
+                                setCommentText('');
+                                Keyboard.dismiss();
+                              }}
+                              style={[styles.commentActionButton, { backgroundColor: colors.surfaceSecondary }]}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.commentCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (commentText.trim()) {
+                                  console.log('Add comment:', commentText);
+                                  setCommentText('');
+                                  setActiveCommentSessionId(null);
+                                  Keyboard.dismiss();
+                                  if (Platform.OS !== 'web') {
+                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                  }
+                                }
+                              }}
+                              style={[styles.commentActionButton, styles.commentSendButton, { backgroundColor: colors.primary }]}
+                              activeOpacity={0.7}
+                              disabled={!commentText.trim()}
+                            >
+                              <Send size={16} color="#FFF" strokeWidth={2} />
+                              <Text style={styles.commentSendText}>Send</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -762,5 +904,112 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     letterSpacing: -0.2,
+  },
+  descriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  journalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  journalControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sortButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  sortButtonText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  commentsContainer: {
+    marginTop: 12,
+    gap: 8,
+  },
+  commentBubble: {
+    padding: 10,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  commentText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  commentTime: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  commentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 6,
+  },
+  commentButtonText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  commentInputContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  commentActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  commentActionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentSendButton: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  commentCancelText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  commentSendText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
 });

@@ -46,6 +46,15 @@ export interface GoogleBook {
   };
 }
 
+export interface SessionComment {
+  id: string;
+  sessionId: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface ReadingSession {
   id: string;
   bookId: string;
@@ -57,6 +66,7 @@ export interface ReadingSession {
   reflection?: string;
   mood?: 'excited' | 'calm' | 'thoughtful' | 'inspired' | 'tired';
   location?: string;
+  comments?: SessionComment[];
   createdAt?: string;
   updatedAt?: string;
 }

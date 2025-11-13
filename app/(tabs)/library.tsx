@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Platform, ActivityIndicator, Image, Dimensions, Keyboard } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { BookOpen, Plus, X, Search, Camera } from 'lucide-react-native';
+import { BookOpen, Plus, X, Search, Camera, Play } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { useReading } from '@/contexts/reading-context';
@@ -277,47 +277,62 @@ export default function LibraryScreen() {
           {rows.map((row, rowIndex) => (
             <View key={`row-${rowIndex}`} style={styles.gridRow}>
               {row.map((book) => (
-                <TouchableOpacity
-                  key={book.id}
-                  style={[styles.bookCard, { width: bookWidth }]}
-                  onPress={() => handleBookPress(book)}
-                  activeOpacity={0.8}
-                >
-                  {(book.thumbnail && book.thumbnail.length > 0) || (book.coverUrl && book.coverUrl.length > 0) ? (
-                    <Image
-                      source={{ uri: book.coverUrl || book.thumbnail }}
-                      style={[styles.bookCover, { width: bookWidth, height: bookWidth * 1.5 }]}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.bookCoverPlaceholder, { backgroundColor: colors.primary + '30', width: bookWidth, height: bookWidth * 1.5 }]}>
-                      <BookOpen size={32} color={colors.primary} strokeWidth={1.5} />
-                    </View>
-                  )}
-                  <View style={styles.bookInfo}>
-                    <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
-                      {book.title}
-                    </Text>
-                    <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {book.author}
-                    </Text>
-                    {book.status === 'reading' ? (
-                      (() => {
-                        const percent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
-                        return (
-                          <View style={styles.progressContainer}>
-                            <Text style={[styles.progressPercentage, { color: colors.primary }]}>
-                              {percent}%
-                            </Text>
-                            <View style={[styles.progressBarContainer, { backgroundColor: colors.surfaceSecondary }]}>
-                              <View style={[styles.progressBar, { width: `${percent}%`, backgroundColor: colors.primary }]} />
+                <View key={book.id} style={[styles.bookCard, { width: bookWidth }]}>
+                  <TouchableOpacity
+                    onPress={() => handleBookPress(book)}
+                    activeOpacity={0.8}
+                  >
+                    {(book.thumbnail && book.thumbnail.length > 0) || (book.coverUrl && book.coverUrl.length > 0) ? (
+                      <Image
+                        source={{ uri: book.coverUrl || book.thumbnail }}
+                        style={[styles.bookCover, { width: bookWidth, height: bookWidth * 1.5 }]}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.bookCoverPlaceholder, { backgroundColor: colors.primary + '30', width: bookWidth, height: bookWidth * 1.5 }]}>
+                        <BookOpen size={32} color={colors.primary} strokeWidth={1.5} />
+                      </View>
+                    )}
+                    <View style={styles.bookInfo}>
+                      <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
+                        {book.title}
+                      </Text>
+                      <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {book.author}
+                      </Text>
+                      {book.status === 'reading' ? (
+                        (() => {
+                          const percent = book.totalPages ? Math.round((book.currentPage / book.totalPages) * 100) : 0;
+                          return (
+                            <View style={styles.progressContainer}>
+                              <Text style={[styles.progressPercentage, { color: colors.primary }]}>
+                                {percent}%
+                              </Text>
+                              <View style={[styles.progressBarContainer, { backgroundColor: colors.surfaceSecondary }]}>
+                                <View style={[styles.progressBar, { width: `${percent}%`, backgroundColor: colors.primary }]} />
+                              </View>
                             </View>
-                          </View>
-                        );
-                      })()
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
+                          );
+                        })()
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                  {book.status === 'reading' && (
+                    <TouchableOpacity
+                      style={[styles.readNowButton, { backgroundColor: colors.primary }]}
+                      onPress={() => {
+                        if (Platform.OS !== 'web') {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        }
+                        router.push(`/focus-session?bookId=${book.id}`);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Play size={14} color="#FFF" strokeWidth={2.5} fill="#FFF" />
+                      <Text style={styles.readNowText}>Read Now</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ))}
             </View>
           ))}
@@ -981,6 +996,27 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 16,
     fontWeight: '700' as const,
+    letterSpacing: -0.2,
+  },
+  readNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  readNowText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
 });

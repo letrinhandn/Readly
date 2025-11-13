@@ -167,20 +167,26 @@ export default function StatsScreen() {
   const heatmapData = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    let weeks: number;
     
+    const availableWidth = width - 90;
+    const cellSize = 14;
+    const gap = 4;
+    const cellWithGap = cellSize + gap;
+    const maxWeeks = Math.floor(availableWidth / cellWithGap);
+    
+    let weeks: number;
     switch (timePeriod) {
       case 'daily':
-        weeks = 1;
+        weeks = Math.min(2, maxWeeks);
         break;
       case 'weekly':
-        weeks = 12;
+        weeks = Math.min(12, maxWeeks);
         break;
       case 'monthly':
-        weeks = 26;
+        weeks = Math.min(26, maxWeeks);
         break;
       default:
-        weeks = 52;
+        weeks = Math.min(52, maxWeeks);
     }
 
     const endDate = new Date(today);
@@ -212,7 +218,7 @@ export default function StatsScreen() {
       data.push({ date, count });
     }
 
-    return { data, weeks, totalDays };
+    return { data, weeks, totalDays, cellSize };
   }, [completedSessions, timePeriod]);
 
   const periodStats = useMemo(() => {
@@ -494,9 +500,9 @@ export default function StatsScreen() {
           </Text>
           <View style={styles.heatmapContainer}>
             <View style={styles.heatmapDayLabels}>
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                <Text key={i} style={[styles.heatmapDayLabel, { color: colors.textTertiary }]}>
-                  {day.charAt(0)}
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                <Text key={i} style={[styles.heatmapDayLabel, { color: colors.textTertiary, height: heatmapData.cellSize }]}>
+                  {day}
                 </Text>
               ))}
             </View>
@@ -514,8 +520,10 @@ export default function StatsScreen() {
                           style={[
                             styles.heatmapCellGithub,
                             { 
-                              backgroundColor: item ? getHeatmapColor(item.count) : colors.surface,
-                              borderColor: item && item.count > 0 ? colors.primary + '20' : colors.border,
+                              width: heatmapData.cellSize,
+                              height: heatmapData.cellSize,
+                              backgroundColor: item ? getHeatmapColor(item.count) : colors.border + '40',
+                              borderColor: colors.border + '40',
                             }
                           ]}
                         />
@@ -832,8 +840,7 @@ const styles = StyleSheet.create({
   heatmapDayLabel: {
     fontSize: 9,
     fontWeight: '500' as const,
-    height: 14,
-    lineHeight: 14,
+    textAlign: 'center',
   },
   heatmapScrollView: {
     flex: 1,
@@ -847,8 +854,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heatmapCellGithub: {
-    width: 14,
-    height: 14,
     borderRadius: 3,
     borderWidth: 1,
   },

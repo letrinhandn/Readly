@@ -196,25 +196,23 @@ export default function StatsScreen() {
     completedSessions.forEach(s => {
       const date = new Date(s.endTime!);
       date.setHours(0, 0, 0, 0);
-      const key = date.toDateString();
+      const key = date.toISOString().split('T')[0];
       sessionsByDay.set(key, (sessionsByDay.get(key) || 0) + 1);
     });
 
-    const data: { date: Date; count: number; dayOfWeek: number; weekIndex: number }[] = [];
+    const data: { date: Date; count: number }[] = [];
     const totalDays = weeks * 7;
     
     for (let i = 0; i < totalDays; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      const key = date.toDateString();
+      const key = date.toISOString().split('T')[0];
       const count = sessionsByDay.get(key) || 0;
-      const dayOfWeek = date.getDay();
-      const weekIndex = Math.floor(i / 7);
       
-      data.push({ date, count, dayOfWeek, weekIndex });
+      data.push({ date, count });
     }
 
-    return { data, weeks };
+    return { data, weeks, totalDays };
   }, [completedSessions, timePeriod]);
 
   const periodStats = useMemo(() => {
@@ -509,28 +507,15 @@ export default function StatsScreen() {
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                       const dataIndex = weekIndex * 7 + dayIndex;
                       const item = heatmapData.data[dataIndex];
-                      if (!item) {
-                        return (
-                          <View
-                            key={dayIndex}
-                            style={[
-                              styles.heatmapCellGithub,
-                              { 
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                              }
-                            ]}
-                          />
-                        );
-                      }
+                      
                       return (
                         <View
                           key={dayIndex}
                           style={[
                             styles.heatmapCellGithub,
                             { 
-                              backgroundColor: getHeatmapColor(item.count),
-                              borderColor: item.count > 0 ? colors.primary + '20' : colors.border,
+                              backgroundColor: item ? getHeatmapColor(item.count) : colors.surface,
+                              borderColor: item && item.count > 0 ? colors.primary + '20' : colors.border,
                             }
                           ]}
                         />

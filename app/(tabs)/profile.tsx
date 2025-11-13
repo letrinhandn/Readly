@@ -310,7 +310,7 @@ export default function ProfileScreen() {
         animationType="slide"
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalOverlay} onPress={Keyboard.dismiss}>
           <View style={[styles.editModalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.editModalHeader}>
               <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit Profile</Text>
@@ -319,8 +319,12 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
-              <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView 
+              style={styles.editForm} 
+              contentContainerStyle={styles.editFormContent}
+              showsVerticalScrollIndicator={false} 
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
                 <TextInput
@@ -385,8 +389,7 @@ export default function ProfileScreen() {
                   ))}
                 </View>
               </View>
-              </ScrollView>
-            </Pressable>
+            </ScrollView>
 
             <View style={styles.editModalActions}>
               <TouchableOpacity
@@ -405,7 +408,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -620,17 +623,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 0,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 0,
   },
   editModalContent: {
-    borderRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '95%',
+    maxHeight: '90%',
     width: '100%',
-    alignSelf: 'center',
-    marginTop: 8,
   },
   editModalHeader: {
     flexDirection: 'row',
@@ -644,7 +645,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   editForm: {
-    flexGrow: 1,
+    flex: 1,
+  },
+  editFormContent: {
+    paddingBottom: 20,
   },
   inputGroup: {
     marginBottom: 20,

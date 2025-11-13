@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, Modal, Alert, TextInput, Keyboard } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2, Edit2, MessageCircle, Send, Search, X, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { BookOpen, Calendar, Clock, TrendingUp, Trash2, Share2, Edit2, MessageCircle, Send, Search, X, ChevronDown, ChevronUp, Play } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -266,6 +266,20 @@ export default function BookDetailScreen() {
           <Text style={[styles.progressText, { color: colors.textSecondary }]}>
             {book.currentPage} of {book.totalPages} pages
           </Text>
+          
+          <TouchableOpacity
+            style={[styles.readNowButton, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }
+              router.push(`/focus-session?bookId=${book.id}`);
+            }}
+            activeOpacity={0.7}
+          >
+            <Play size={18} color="#FFF" strokeWidth={2.5} fill="#FFF" />
+            <Text style={styles.readNowButtonText}>Read Now</Text>
+          </TouchableOpacity>
         </View>
 
         {book.description && (
@@ -665,6 +679,27 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 14,
     fontWeight: '600' as const,
+    marginBottom: 16,
+  },
+  readNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  readNowButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   descriptionCard: {
     borderRadius: 20,

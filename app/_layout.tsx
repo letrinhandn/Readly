@@ -7,7 +7,6 @@ import { ReadingProvider } from '@/contexts/reading-context';
 import { ThemeProvider } from '@/contexts/theme-context';
 import { UserProvider } from '@/contexts/user-context';
 import { SettingsProvider } from '@/contexts/settings-context';
-import { RevenueCatProvider } from '@/contexts/revenuecat-context';
 import { trpc, trpcClient } from '@/lib/trpc';
 import supabase from '@/lib/supabase';
 
@@ -92,9 +91,6 @@ function RootLayoutNav() {
       <Stack.Screen name="notifications-settings" options={{ title: 'Notifications' }} />
       <Stack.Screen name="app-settings" options={{ title: 'App Settings' }} />
       <Stack.Screen name="help-support" options={{ title: 'Help & Support' }} />
-      <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
-      <Stack.Screen name="premium-feature" options={{ title: 'Premium Feature' }} />
-      <Stack.Screen name="subscription-management" options={{ title: 'Subscription' }} />
     </Stack>
   );
 }
@@ -110,13 +106,11 @@ export default function RootLayout() {
         <ThemeProvider>
           <SettingsProvider>
             <UserProvider>
-              <RevenueCatProvider>
-                <ReadingProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootLayoutNav />
-                  </GestureHandlerRootView>
-                </ReadingProvider>
-              </RevenueCatProvider>
+              <ReadingProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </ReadingProvider>
             </UserProvider>
           </SettingsProvider>
         </ThemeProvider>

@@ -7,13 +7,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useReading } from '@/contexts/reading-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useUser } from '@/contexts/user-context';
+import { useBadges } from '@/contexts/badge-context';
 import supabase from '@/lib/supabase';
 import { uploadImage, STORAGE_BUCKETS } from '@/lib/storage';
+import Badge from '@/components/Badge';
 
 export default function ProfileScreen() {
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
   const { profile, updateProfile, isLoading: isProfileLoading } = useUser();
+  const { topBadges, isLoading: isBadgesLoading } = useBadges();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -160,6 +163,18 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
+          
+          {!isBadgesLoading && topBadges.length > 0 && (
+            <View style={styles.badgesContainer}>
+              {topBadges.map((userBadge) => (
+                userBadge.badge && (
+                  <View key={userBadge.id} style={styles.badgeItem}>
+                    <Badge badge={userBadge.badge} size="small" />
+                  </View>
+                )
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
@@ -708,5 +723,16 @@ const styles = StyleSheet.create({
   editModalButtonText: {
     fontSize: 16,
     fontWeight: '700' as const,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  badgeItem: {
+    marginHorizontal: 2,
   },
 });

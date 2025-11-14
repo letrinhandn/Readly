@@ -140,6 +140,55 @@ Stores individual reading sessions/journal entries. Each session is linked to a 
 - Location (optional)
 - Timestamps for streak calculations
 
+## Badges Tables
+
+```sql
+-- Badge Definitions Table
+CREATE TABLE IF NOT EXISTS badge_definitions (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  rarity TEXT NOT NULL CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'godtier')),
+  icon_url TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('time', 'books', 'genre', 'author', 'streak', 'pages', 'special')),
+  criteria JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User Badges Table (earned badges)
+CREATE TABLE IF NOT EXISTS user_badges (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  badge_id TEXT NOT NULL REFERENCES badge_definitions(id) ON DELETE CASCADE,
+  earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, badge_id)
+);
+
+-- Create indexes for badges
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_badge_id ON user_badges(badge_id);
+CREATE INDEX IF NOT EXISTS idx_badge_definitions_rarity ON badge_definitions(rarity);
+CREATE INDEX IF NOT EXISTS idx_badge_definitions_category ON badge_definitions(category);
+
+-- Enable RLS for badges
+ALTER TABLE badge_definitions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
+
+-- Badge definitions are public (everyone can view)
+CREATE POLICY "Badge definitions are viewable by everyone" ON badge_definitions FOR SELECT USING (true);
+CREATE POLICY "Only admins can modify badge definitions" ON badge_definitions FOR ALL USING (false);
+
+-- User badges policies
+CREATE POLICY "Users can view own badges" ON user_badges FOR SELECT USING (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can insert own badges" ON user_badges FOR INSERT WITH CHECK (auth.uid()::TEXT = user_id);
+CREATE POLICY "Users can delete own badges" ON user_badges FOR DELETE USING (auth.uid()::TEXT = user_id);
+
+-- Trigger for badge_definitions updated_at
+CREATE TRIGGER update_badge_definitions_updated_at BEFORE UPDATE ON badge_definitions
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+```
+
 ## Usage in App
 
 The app uses these tables to:
@@ -148,3 +197,5 @@ The app uses these tables to:
 3. Calculate reading streaks based on session dates
 4. Display reading history and statistics
 5. Show journal threads in book details
+6. Display and track user achievement badges
+7. Award badges based on reading activity and milestones

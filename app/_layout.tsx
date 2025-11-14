@@ -7,6 +7,7 @@ import { ReadingProvider } from '@/contexts/reading-context';
 import { ThemeProvider } from '@/contexts/theme-context';
 import { UserProvider } from '@/contexts/user-context';
 import { SettingsProvider } from '@/contexts/settings-context';
+import { BadgeProvider } from '@/contexts/badge-context';
 import { trpc, trpcClient } from '@/lib/trpc';
 import supabase from '@/lib/supabase';
 
@@ -106,11 +107,13 @@ export default function RootLayout() {
         <ThemeProvider>
           <SettingsProvider>
             <UserProvider>
-              <ReadingProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </ReadingProvider>
+              <BadgeProvider>
+                <ReadingProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootLayoutNav />
+                  </GestureHandlerRootView>
+                </ReadingProvider>
+              </BadgeProvider>
             </UserProvider>
           </SettingsProvider>
         </ThemeProvider>

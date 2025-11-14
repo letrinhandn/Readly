@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    [
+      "react-native-purchases",
+      {
+        "iosAppStoreAPIKey": "YOUR_IOS_APP_STORE_API_KEY_HERE",
+        "androidGooglePlayAPIKey": "YOUR_ANDROID_GOOGLE_PLAY_API_KEY_HERE"
+      }
+    ]
+  ]
+}

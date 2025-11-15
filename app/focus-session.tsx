@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '@/constants/colors';
 import { useReading } from '@/contexts/reading-context';
 import { useBadges } from '@/contexts/badge-context';
+import { useQueryClient } from '@tanstack/react-query';
 import ShareDailyCard from '@/components/ShareDailyCard';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -31,8 +32,9 @@ Notifications.setNotificationHandler({
 export default function FocusSessionScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
   const { books, stats, startReadingSession, endReadingSession } = useReading();
-  const { checkAndAwardBadges } = useBadges();
+  const { checkAndAwardBadges, refetch: refetchBadges } = useBadges();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
 
   const book = books.find(b => b.id === bookId);
   
@@ -413,13 +415,20 @@ export default function FocusSessionScreen() {
     setShowShareModal(true);
     setShowCompleteForm(false);
 
-    console.log('[FocusSession] Session ended, waiting for data refresh before checking badges');
+    console.log('[FocusSession] Session ended, refreshing all queries before checking badges');
     
-    setTimeout(() => {
-      console.log('[FocusSession] Triggering badge check');
-      checkAndAwardBadges();
-    }, 2000);
-  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification, checkAndAwardBadges]);
+    setTimeout(async () => {
+      console.log('[FocusSession] Refetching all data...');
+      await queryClient.refetchQueries({ queryKey: ['sessions'] });
+      await queryClient.refetchQueries({ queryKey: ['books'] });
+      await refetchBadges();
+      
+      setTimeout(() => {
+        console.log('[FocusSession] Triggering badge check');
+        checkAndAwardBadges();
+      }, 500);
+    }, 1000);
+  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification, checkAndAwardBadges, queryClient, refetchBadges]);
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);

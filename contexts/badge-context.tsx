@@ -50,12 +50,18 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
       return;
     }
     
+    if (!userBadgesQuery.data) {
+      console.log('[Badges] User badges not loaded yet');
+      return;
+    }
+    
     if (!stats || !books || !sessions) {
       console.log('[Badges] Reading data not ready yet');
       return;
     }
     
     console.log('[Badges] Checking badges with', sessions.length, 'sessions,', books.length, 'books');
+    console.log('[Badges] Current earned badges:', userBadgesQuery.data.length);
     
     const badgesToAward: string[] = [];
     

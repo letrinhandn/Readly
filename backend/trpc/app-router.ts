@@ -6,10 +6,10 @@ import getStatsRoute from "@/backend/trpc/routes/journal/get-stats";
 import deleteSessionRoute from "@/backend/trpc/routes/journal/delete-session";
 import addCommentRoute from "@/backend/trpc/routes/journal/add-comment";
 import getCommentsRoute from "@/backend/trpc/routes/journal/get-comments";
-import getAllBadgesRoute from "@/backend/trpc/routes/badges/get-all-badges";
-import getUserBadgesRoute from "@/backend/trpc/routes/badges/get-user-badges";
-import awardBadgeRoute from "@/backend/trpc/routes/badges/award-badge";
-import createBadgeDefinitionRoute from "@/backend/trpc/routes/badges/create-badge-definition";
+import { getAllBadgesRoute } from "@/backend/trpc/routes/badges/get-all-badges";
+import { getUserBadgesRoute } from "@/backend/trpc/routes/badges/get-user-badges";
+import { awardBadgeRoute } from "@/backend/trpc/routes/badges/award-badge";
+import { createBadgeDefinitionRoute } from "@/backend/trpc/routes/badges/create-badge-definition";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({

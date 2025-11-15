@@ -13,7 +13,8 @@ type MergedBadge = {
 
 export const [BadgeProvider, useBadges] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const { stats, books, sessions } = useReading();
+  const reading = useReading();
+  const { stats = { totalBooksRead: 0, totalPagesRead: 0, totalMinutesRead: 0, currentStreak: 0, longestStreak: 0, sessionsThisWeek: 0 }, books = [], sessions = [] } = reading || {};
 
   const userBadgesQuery = trpc.badges.getUserBadges.useQuery();
   const allBadgesQuery = trpc.badges.getAllBadges.useQuery();
@@ -36,7 +37,12 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
 
   const checkAndAwardBadges = useCallback(() => {
     if (!allBadgesQuery.data || allBadgesQuery.data.length === 0) {
-      console.log('[Badges] No badge definitions available. Please set up badge_definitions in Supabase.');
+      console.log('[Badges] No badge definitions available yet');
+      return;
+    }
+    
+    if (!stats || !books || !sessions) {
+      console.log('[Badges] Reading data not ready yet');
       return;
     }
     

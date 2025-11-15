@@ -13,12 +13,12 @@ export interface BadgeDefinition {
   description: string;
   rarity: BadgeRarity;
   iconUrl: string;
-  category: 'time' | 'books' | 'genre' | 'author' | 'streak' | 'pages' | 'special';
+  category: 'time' | 'books' | 'genre' | 'author' | 'streak' | 'pages' | 'special' | 'reflection' | 'social' | 'events';
   criteria?: {
     type: 'time' | 'books_read' | 'genre' | 'author' | 'streak' | 'pages' | 'custom';
     value?: number | string;
     condition?: string;
-  };
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -165,6 +165,13 @@ export default function ProfileScreen() {
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
           
           <View style={styles.badgesWrapper}>
+            {isBadgesLoading && (
+              <View style={styles.badgesLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.badgesLoadingText, { color: colors.textSecondary }]}>Loading badges...</Text>
+              </View>
+            )}
+            
             {!isBadgesLoading && topBadges.length > 0 && (
               <TouchableOpacity 
                 style={styles.badgesSection}
@@ -194,13 +201,11 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
             
-            {!isBadgesLoading && availableBadges.length === 0 && (
+            {!isBadgesLoading && topBadges.length === 0 && availableBadges.length > 0 && (
               <View style={[styles.noBadgesCard, { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.noBadgesText, { color: colors.textSecondary }]}>
-                  No badges available. Please set up badge definitions in Supabase.
-                </Text>
+                <Text style={[styles.noBadgesText, { color: colors.textSecondary }]}>🏆</Text>
                 <Text style={[styles.noBadgesHint, { color: colors.textTertiary }]}>
-                  See BADGE_SETUP_GUIDE.md for instructions.
+                  Start reading to earn badges!
                 </Text>
               </View>
             )}
@@ -830,5 +835,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700' as const,
     letterSpacing: 0.3,
+  },
+  badgesLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 12,
+  },
+  badgesLoadingText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
 });

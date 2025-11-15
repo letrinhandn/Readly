@@ -108,13 +108,13 @@ export default function RootLayout() {
         <ThemeProvider>
           <SettingsProvider>
             <UserProvider>
-              <BadgeProvider>
-                <ReadingProvider>
+              <ReadingProvider>
+                <BadgeProvider>
                   <GestureHandlerRootView style={{ flex: 1 }}>
                     <RootLayoutNav />
                   </GestureHandlerRootView>
-                </ReadingProvider>
-              </BadgeProvider>
+                </BadgeProvider>
+              </ReadingProvider>
             </UserProvider>
           </SettingsProvider>
         </ThemeProvider>

@@ -394,6 +394,8 @@ export default function FocusSessionScreen() {
     const words = reflectionText.trim().split(/\s+/).filter(Boolean);
     const limited = words.length > 300 ? words.slice(0, 300).join(' ') : reflectionText.trim();
     
+    console.log('[FocusSession] Ending session:', { sessionId, duration, pagesRead, reflection: !!limited });
+    
     await endReadingSession(sessionId, Number(pagesRead || 0), limited, book?.id);
     await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
     await cancelTimerNotification();
@@ -411,9 +413,12 @@ export default function FocusSessionScreen() {
     setShowShareModal(true);
     setShowCompleteForm(false);
 
+    console.log('[FocusSession] Session ended, waiting for data refresh before checking badges');
+    
     setTimeout(() => {
+      console.log('[FocusSession] Triggering badge check');
       checkAndAwardBadges();
-    }, 500);
+    }, 2000);
   }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification, checkAndAwardBadges]);
 
   const formatTime = (totalSeconds: number) => {

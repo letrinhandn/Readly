@@ -7,13 +7,26 @@ import { ReadingProvider } from '@/contexts/reading-context';
 import { ThemeProvider } from '@/contexts/theme-context';
 import { UserProvider } from '@/contexts/user-context';
 import { SettingsProvider } from '@/contexts/settings-context';
-import { BadgeProvider } from '@/contexts/badge-context';
+import { BadgeProvider, useBadges } from '@/contexts/badge-context';
 import { trpc, trpcClient } from '@/lib/trpc';
 import supabase from '@/lib/supabase';
+import BadgeEarnedPopup from '@/components/BadgeEarnedPopup';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function BadgePopupWrapper() {
+  const { newlyEarnedBadges, dismissNewlyEarnedBadge } = useBadges();
+  
+  return (
+    <BadgeEarnedPopup
+      badge={newlyEarnedBadges[0] || null}
+      visible={newlyEarnedBadges.length > 0}
+      onClose={dismissNewlyEarnedBadge}
+    />
+  );
+}
 
 function RootLayoutNav() {
   const segments = useSegments();
@@ -76,24 +89,27 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="add-book" options={{ presentation: 'modal', title: 'Add Book' }} />
-      <Stack.Screen name="edit-book" options={{ presentation: 'modal', title: 'Edit Book' }} />
-      <Stack.Screen name="book-detail" options={{ title: 'Book Details' }} />
-      <Stack.Screen name="focus-session" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="scan-progress" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="scan-book" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="share-card" options={{ headerShown: false, presentation: 'modal' }} />
-      <Stack.Screen name="share-profile" options={{ headerShown: false, presentation: 'modal' }} />
-      <Stack.Screen name="notifications-settings" options={{ title: 'Notifications' }} />
-      <Stack.Screen name="app-settings" options={{ title: 'App Settings' }} />
-      <Stack.Screen name="help-support" options={{ title: 'Help & Support' }} />
-      <Stack.Screen name="badges" options={{ title: 'Badges' }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="add-book" options={{ presentation: 'modal', title: 'Add Book' }} />
+        <Stack.Screen name="edit-book" options={{ presentation: 'modal', title: 'Edit Book' }} />
+        <Stack.Screen name="book-detail" options={{ title: 'Book Details' }} />
+        <Stack.Screen name="focus-session" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="scan-progress" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="scan-book" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="share-card" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="share-profile" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="notifications-settings" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="app-settings" options={{ title: 'App Settings' }} />
+        <Stack.Screen name="help-support" options={{ title: 'Help & Support' }} />
+        <Stack.Screen name="badges" options={{ title: 'Badges' }} />
+      </Stack>
+      <BadgePopupWrapper />
+    </>
   );
 }
 

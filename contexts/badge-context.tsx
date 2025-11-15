@@ -1,6 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { BadgeDefinition, UserBadge } from '@/types/badge';
 import { trpc } from '@/lib/trpc';
 import { useReading } from './reading-context';
@@ -15,13 +15,22 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
   const queryClient = useQueryClient();
   const reading = useReading();
   const { stats = { totalBooksRead: 0, totalPagesRead: 0, totalMinutesRead: 0, currentStreak: 0, longestStreak: 0, sessionsThisWeek: 0 }, books = [], sessions = [] } = reading || {};
+  
+  const [newlyEarnedBadges, setNewlyEarnedBadges] = useState<BadgeDefinition[]>([]);
+  const [previousUserBadgesCount, setPreviousUserBadgesCount] = useState<number>(0);
 
   const userBadgesQuery = trpc.badges.getUserBadges.useQuery();
   const allBadgesQuery = trpc.badges.getAllBadges.useQuery();
 
   const awardBadgeMutation = trpc.badges.awardBadge.useMutation({
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['badges', 'getUserBadges'] });
+      
+      const badge = allBadgesQuery.data?.find(b => b.id === variables.badgeId);
+      if (badge) {
+        console.log('[Badges] Adding newly earned badge to popup queue:', badge.name);
+        setNewlyEarnedBadges(prev => [...prev, badge]);
+      }
     },
   });
 
@@ -261,6 +270,10 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
     userBadgesQuery.refetch();
     allBadgesQuery.refetch();
   }, [userBadgesQuery, allBadgesQuery]);
+  
+  const dismissNewlyEarnedBadge = useCallback(() => {
+    setNewlyEarnedBadges(prev => prev.slice(1));
+  }, []);
 
   return useMemo(() => ({
     earnedBadges,
@@ -275,6 +288,8 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
     hasBadge,
     refetch,
     checkAndAwardBadges,
+    newlyEarnedBadges,
+    dismissNewlyEarnedBadge,
   }), [
     earnedBadges,
     availableBadges,
@@ -288,5 +303,7 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
     hasBadge,
     refetch,
     checkAndAwardBadges,
+    newlyEarnedBadges,
+    dismissNewlyEarnedBadge,
   ]);
 });

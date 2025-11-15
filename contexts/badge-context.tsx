@@ -12,12 +12,12 @@ type MergedBadge = {
 };
 
 export const [BadgeProvider, useBadges] = createContextHook(() => {
+  const [newlyEarnedBadges, setNewlyEarnedBadges] = useState<BadgeDefinition[]>([]);
+  const [previousUserBadgesCount, setPreviousUserBadgesCount] = useState<number>(0);
+  
   const queryClient = useQueryClient();
   const reading = useReading();
   const { stats = { totalBooksRead: 0, totalPagesRead: 0, totalMinutesRead: 0, currentStreak: 0, longestStreak: 0, sessionsThisWeek: 0 }, books = [], sessions = [] } = reading || {};
-  
-  const [newlyEarnedBadges, setNewlyEarnedBadges] = useState<BadgeDefinition[]>([]);
-  const [previousUserBadgesCount, setPreviousUserBadgesCount] = useState<number>(0);
 
   const userBadgesQuery = trpc.badges.getUserBadges.useQuery();
   const allBadgesQuery = trpc.badges.getAllBadges.useQuery();

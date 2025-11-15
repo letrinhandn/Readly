@@ -44,39 +44,36 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
     return userBadgesQuery.data.some((ub) => ub.badgeId === badgeId);
   }, [userBadgesQuery.data]);
 
-  const checkAndAwardBadges = useCallback(() => {
+  const checkAndAwardBadges = useCallback(async () => {
+    console.log('[Badges] === Starting badge check ===');
+    
     if (!allBadgesQuery.data || allBadgesQuery.data.length === 0) {
-      console.log('[Badges] No badge definitions available yet');
+      console.log('[Badges] No badge definitions available');
       return;
     }
     
     if (!userBadgesQuery.data) {
-      console.log('[Badges] User badges not loaded yet');
+      console.log('[Badges] User badges not loaded');
       return;
     }
     
     if (!stats || !books || !sessions) {
-      console.log('[Badges] Reading data not ready yet');
+      console.log('[Badges] Reading data not ready');
       return;
     }
     
-    console.log('[Badges] Checking badges with', sessions.length, 'sessions,', books.length, 'books');
-    console.log('[Badges] Current earned badges:', userBadgesQuery.data.length);
-    
-    const badgesToAward: string[] = [];
+    console.log('[Badges] Data ready - Sessions:', sessions.length, 'Books:', books.length, 'User badges:', userBadgesQuery.data.length);
     
     const completedSessions = sessions.filter(s => s.endTime);
     console.log('[Badges] Completed sessions:', completedSessions.length);
-    completedSessions.forEach(s => {
-      console.log('[Badges] Session:', s.id, 'duration:', s.duration, 'min, pages:', s.pagesRead);
-    });
     
     const totalReflections = completedSessions.filter(s => s.reflection && s.reflection.length > 0).length;
     const distinctGenres = [...new Set(books.flatMap(b => b.categories || []))];
     const distinctAuthors = [...new Set(books.map(b => b.author))];
     const totalBooksFinished = books.filter(b => b.status === 'completed').length;
     
-    console.log('[Badges] Stats:', {
+    console.log('[Badges] Calculated stats:', {
+      completedSessions: completedSessions.length,
       totalReflections,
       distinctGenres: distinctGenres.length,
       distinctAuthors: distinctAuthors.length,
@@ -85,8 +82,12 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
       totalPages: stats.totalPagesRead,
     });
 
-    allBadgesQuery.data.forEach(badge => {
-      if (hasBadge(badge.id)) return;
+    const badgesToAward: string[] = [];
+
+    for (const badge of allBadgesQuery.data) {
+      if (hasBadge(badge.id)) {
+        continue;
+      }
 
       let shouldAward = false;
 
@@ -96,7 +97,7 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           break;
         
         case 'first-minute':
-          shouldAward = completedSessions.some(s => s.duration >= 1) && completedSessions.length === 1;
+          shouldAward = completedSessions.length >= 1 && completedSessions.some(s => s.duration >= 1);
           break;
         
         case 'quick-session':
@@ -111,21 +112,19 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           shouldAward = stats.currentStreak >= 3;
           break;
         
-        case 'morning-read': {
+        case 'morning-read':
           shouldAward = completedSessions.some(s => {
             const hour = new Date(s.startTime).getHours();
             return hour >= 5 && hour <= 10;
           });
           break;
-        }
         
-        case 'night-read': {
+        case 'night-read':
           shouldAward = completedSessions.some(s => {
             const hour = new Date(s.startTime).getHours();
             return hour >= 21 || hour <= 2;
           });
           break;
-        }
         
         case 'first-10-pages':
           shouldAward = stats.totalPagesRead >= 10;
@@ -136,16 +135,15 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           break;
         
         case 'book-initiate':
-          shouldAward = books.some(b => b.status === 'reading');
+          shouldAward = books.length >= 1;
           break;
         
-        case 'halfway-hero': {
+        case 'halfway-hero':
           shouldAward = books.some(b => {
             const progress = b.totalPages > 0 ? b.currentPage / b.totalPages : 0;
             return progress >= 0.5;
           });
           break;
-        }
         
         case 'first-finish':
           shouldAward = totalBooksFinished >= 1;
@@ -167,7 +165,7 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           shouldAward = distinctAuthors.length >= 1;
           break;
         
-        case 'daily-goal': {
+        case 'daily-goal':
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const todaySessions = completedSessions.filter(s => {
@@ -177,9 +175,8 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           });
           shouldAward = todaySessions.length >= 1;
           break;
-        }
         
-        case 'weekly-hello': {
+        case 'weekly-hello':
           const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
           const weekSessions = completedSessions.filter(s => {
             return new Date(s.endTime!).getTime() >= weekAgo;
@@ -190,27 +187,31 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
           }))];
           shouldAward = weekDates.length >= 3;
           break;
-        }
       }
 
       if (shouldAward) {
-        console.log('[Badges] Badge', badge.id, 'should be awarded!');
+        console.log('[Badges] ✓ Badge', badge.id, badge.name, 'should be awarded!');
         badgesToAward.push(badge.id);
       }
-    });
+    }
 
-    console.log('[Badges] Total badges to award:', badgesToAward.length);
-    badgesToAward.forEach(badgeId => {
+    console.log('[Badges] Badges to award:', badgesToAward.length, badgesToAward);
+    
+    for (const badgeId of badgesToAward) {
+      console.log('[Badges] Awarding badge:', badgeId);
       awardBadge(badgeId);
-    });
-  }, [allBadgesQuery.data, hasBadge, sessions, books, stats, awardBadge]);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    console.log('[Badges] === Badge check complete ===');
+  }, [allBadgesQuery.data, userBadgesQuery.data, hasBadge, sessions, books, stats, awardBadge]);
 
   useEffect(() => {
     if (allBadgesQuery.data && userBadgesQuery.data && !allBadgesQuery.isLoading && !userBadgesQuery.isLoading) {
-      console.log('[Badges] Running checkAndAwardBadges from useEffect');
+      console.log('[Badges] Triggering badge check from useEffect');
       checkAndAwardBadges();
     }
-  }, [sessions, books, stats.currentStreak, stats.totalPagesRead, allBadgesQuery.data, userBadgesQuery.data, allBadgesQuery.isLoading, userBadgesQuery.isLoading]);
+  }, [sessions.length, books.length, stats.currentStreak, stats.totalPagesRead, allBadgesQuery.data, userBadgesQuery.data, allBadgesQuery.isLoading, userBadgesQuery.isLoading, checkAndAwardBadges]);
 
 
 
@@ -272,9 +273,11 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
       .slice(0, 5);
   }, [userBadgesQuery.data]);
 
-  const refetch = useCallback(() => {
-    userBadgesQuery.refetch();
-    allBadgesQuery.refetch();
+  const refetch = useCallback(async () => {
+    console.log('[Badges] Refetching badges data...');
+    await userBadgesQuery.refetch();
+    await allBadgesQuery.refetch();
+    console.log('[Badges] Badges data refetched');
   }, [userBadgesQuery, allBadgesQuery]);
   
   const dismissNewlyEarnedBadge = useCallback(() => {

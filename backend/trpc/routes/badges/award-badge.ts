@@ -13,7 +13,7 @@ export const awardBadgeRoute = protectedProcedure
   )
   .mutation(async ({ ctx, input }) => {
     const userId = ctx.userId;
-    console.log('Awarding badge:', input.badgeId, 'to user:', userId);
+    console.log('[Badge Award] Attempting to award badge:', input.badgeId, 'to user:', userId);
     
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
@@ -25,6 +25,22 @@ export const awardBadgeRoute = protectedProcedure
         },
       },
     });
+    
+    const { data: existingBadge, error: checkError } = await client
+      .from('user_badges')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('badge_id', input.badgeId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('[Badge Award] Error checking existing badge:', checkError);
+    }
+
+    if (existingBadge) {
+      console.log('[Badge Award] Badge already earned by user, skipping');
+      return existingBadge;
+    }
     
     const badgeId = `${userId}_${input.badgeId}_${Date.now()}`;
     
@@ -40,14 +56,16 @@ export const awardBadgeRoute = protectedProcedure
       .single();
 
     if (error) {
-      if (error.code === '23505') {
-        console.log('Badge already awarded to user');
-        throw new Error('Badge already earned');
-      }
-      console.error('Error awarding badge:', error);
-      throw new Error('Failed to award badge');
+      console.error('[Badge Award] Error inserting badge:', error);
+      console.error('[Badge Award] Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(`Failed to award badge: ${error.message}`);
     }
 
-    console.log('Badge awarded successfully');
+    console.log('[Badge Award] Badge awarded successfully:', data);
     return data;
   });

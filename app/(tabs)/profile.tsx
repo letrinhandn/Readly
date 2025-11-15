@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
   const { profile, updateProfile, isLoading: isProfileLoading } = useUser();
-  const { topBadges, totalEarned, availableBadges, isLoading: isBadgesLoading } = useBadges();
+  const { topBadges, totalEarned, availableBadges, isLoading: isBadgesLoading, checkAndAwardBadges } = useBadges();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -164,34 +164,65 @@ export default function ProfileScreen() {
           </View>
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
           
-          {!isBadgesLoading && topBadges.length > 0 && (
-            <TouchableOpacity 
-              style={styles.badgesSection}
-              onPress={() => {
-                router.push('/badges');
-                if (Platform.OS !== 'web') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.badgesHeader}>
-                <Text style={[styles.badgesTitle, { color: colors.text }]}>
-                  {totalEarned} Badge{totalEarned !== 1 ? 's' : ''}
+          <View style={styles.badgesWrapper}>
+            {!isBadgesLoading && topBadges.length > 0 && (
+              <TouchableOpacity 
+                style={styles.badgesSection}
+                onPress={() => {
+                  router.push('/badges');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.badgesHeader}>
+                  <Text style={[styles.badgesTitle, { color: colors.text }]}>
+                    {totalEarned} Badge{totalEarned !== 1 ? 's' : ''}
+                  </Text>
+                  <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                </View>
+                <View style={styles.badgesContainer}>
+                  {topBadges.map((userBadge) => (
+                    userBadge.badge && (
+                      <View key={userBadge.id} style={styles.badgeItem}>
+                        <Badge badge={userBadge.badge} size="small" earned={true} />
+                      </View>
+                    )
+                  ))}
+                </View>
+              </TouchableOpacity>
+            )}
+            
+            {!isBadgesLoading && availableBadges.length === 0 && (
+              <View style={[styles.noBadgesCard, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.noBadgesText, { color: colors.textSecondary }]}>
+                  No badges available. Please set up badge definitions in Supabase.
                 </Text>
-                <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2.5} />
+                <Text style={[styles.noBadgesHint, { color: colors.textTertiary }]}>
+                  See BADGE_SETUP_GUIDE.md for instructions.
+                </Text>
               </View>
-              <View style={styles.badgesContainer}>
-                {topBadges.map((userBadge) => (
-                  userBadge.badge && (
-                    <View key={userBadge.id} style={styles.badgeItem}>
-                      <Badge badge={userBadge.badge} size="small" earned={true} />
-                    </View>
-                  )
-                ))}
-              </View>
-            </TouchableOpacity>
-          )}
+            )}
+            
+            {__DEV__ && availableBadges.length > 0 && (
+              <TouchableOpacity
+                style={[styles.debugButton, { backgroundColor: colors.accent }]}
+                onPress={() => {
+                  console.log('[Debug] Manually triggering badge check');
+                  checkAndAwardBadges();
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.debugButtonText, { color: colors.surface }]}>
+                  🔄 Check Badges (Debug)
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
@@ -767,5 +798,37 @@ const styles = StyleSheet.create({
   },
   badgeItem: {
     marginHorizontal: 2,
+  },
+  badgesWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  noBadgesCard: {
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    width: '100%',
+  },
+  noBadgesText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  noBadgesHint: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+  },
+  debugButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  debugButtonText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
   },
 });

@@ -36,15 +36,34 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
   }, [userBadgesQuery.data]);
 
   const checkAndAwardBadges = useCallback(() => {
-    if (!allBadgesQuery.data) return;
+    if (!allBadgesQuery.data) {
+      console.log('[Badges] No badge definitions available');
+      return;
+    }
+    
+    console.log('[Badges] Checking badges with', sessions.length, 'sessions,', books.length, 'books');
     
     const badgesToAward: string[] = [];
     
     const completedSessions = sessions.filter(s => s.endTime);
+    console.log('[Badges] Completed sessions:', completedSessions.length);
+    completedSessions.forEach(s => {
+      console.log('[Badges] Session:', s.id, 'duration:', s.duration, 'min, pages:', s.pagesRead);
+    });
+    
     const totalReflections = completedSessions.filter(s => s.reflection && s.reflection.length > 0).length;
     const distinctGenres = [...new Set(books.flatMap(b => b.categories || []))];
     const distinctAuthors = [...new Set(books.map(b => b.author))];
     const totalBooksFinished = books.filter(b => b.status === 'completed').length;
+    
+    console.log('[Badges] Stats:', {
+      totalReflections,
+      distinctGenres: distinctGenres.length,
+      distinctAuthors: distinctAuthors.length,
+      totalBooksFinished,
+      currentStreak: stats.currentStreak,
+      totalPages: stats.totalPagesRead,
+    });
 
     allBadgesQuery.data.forEach(badge => {
       if (hasBadge(badge.id)) return;
@@ -155,10 +174,12 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
       }
 
       if (shouldAward) {
+        console.log('[Badges] Badge', badge.id, 'should be awarded!');
         badgesToAward.push(badge.id);
       }
     });
 
+    console.log('[Badges] Total badges to award:', badgesToAward.length);
     badgesToAward.forEach(badgeId => {
       awardBadge(badgeId);
     });
@@ -166,9 +187,10 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
 
   useEffect(() => {
     if (allBadgesQuery.data && userBadgesQuery.data && !allBadgesQuery.isLoading && !userBadgesQuery.isLoading) {
+      console.log('[Badges] Running checkAndAwardBadges from useEffect');
       checkAndAwardBadges();
     }
-  }, [sessions.length, books.length, stats.currentStreak, stats.totalPagesRead, allBadgesQuery.isLoading, userBadgesQuery.isLoading, checkAndAwardBadges]);
+  }, [sessions, books, stats.currentStreak, stats.totalPagesRead, allBadgesQuery.data, userBadgesQuery.data, allBadgesQuery.isLoading, userBadgesQuery.isLoading]);
 
   useEffect(() => {
     let subscription: any;

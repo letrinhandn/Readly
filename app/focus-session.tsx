@@ -273,7 +273,7 @@ export default function FocusSessionScreen() {
         content: {
           title: isCountdown ? '⏱ Reading Timer (Countdown)' : '⏱ Reading Timer',
           body: `${book.title}\n${timeStr} ${isCountdown ? 'remaining' : 'elapsed'}`,
-          sound: null,
+          sound: false,
           priority: Notifications.AndroidNotificationPriority.HIGH,
           sticky: true,
         },

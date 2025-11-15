@@ -1,11 +1,25 @@
 import { protectedProcedure } from "@/backend/trpc/create-context";
-import supabase from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { BadgeDefinitionDB, dbToBadgeDefinition } from "@/types/badge";
 
-export const getAllBadgesRoute = protectedProcedure.query(async () => {
-  console.log('Getting all badge definitions');
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://xvnhanwektoejkgpzybt.supabase.co';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2bmhhbndla3RvZWprZ3B6eWJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NzE2MjgsImV4cCI6MjA3ODQ0NzYyOH0.o-jQ3kmMtRNO_CMj0oHqhe5CSlMJv4CyrzDIRmFBGZs';
+
+export const getAllBadgesRoute = protectedProcedure.query(async ({ ctx }) => {
+  console.log('Getting all badge definitions for user:', ctx.userId);
   
-  const { data, error } = await supabase
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${ctx.token}`,
+      },
+    },
+  });
+  
+  const { data, error } = await client
     .from('badge_definitions')
     .select('*')
     .order('rarity', { ascending: false })

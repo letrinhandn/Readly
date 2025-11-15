@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { useBadges } from '@/contexts/badge-context';
 import { useTheme } from '@/contexts/theme-context';
@@ -39,10 +39,13 @@ export default function BadgesScreen() {
               Loading badges...
             </Text>
           </View>
-        ) : mergedBadges.length === 0 ? (
+        ) : availableBadges.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No badges available yet
+              No badges available. Please set up badge definitions in Supabase.
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+              See BADGE_SETUP_GUIDE.md for instructions.
             </Text>
           </View>
         ) : (
@@ -95,5 +98,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500' as const,
     textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    fontWeight: '400' as const,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

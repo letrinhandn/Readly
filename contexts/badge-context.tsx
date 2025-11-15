@@ -36,8 +36,8 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
   }, [userBadgesQuery.data]);
 
   const checkAndAwardBadges = useCallback(() => {
-    if (!allBadgesQuery.data) {
-      console.log('[Badges] No badge definitions available');
+    if (!allBadgesQuery.data || allBadgesQuery.data.length === 0) {
+      console.log('[Badges] No badge definitions available. Please set up badge_definitions in Supabase.');
       return;
     }
     

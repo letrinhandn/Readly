@@ -4,7 +4,6 @@ import { useMemo, useCallback, useEffect } from 'react';
 import { BadgeDefinition, UserBadge } from '@/types/badge';
 import { trpc } from '@/lib/trpc';
 import { useReading } from './reading-context';
-import supabase from '@/lib/supabase';
 
 type MergedBadge = {
   badge: BadgeDefinition;
@@ -192,30 +191,7 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
     }
   }, [sessions, books, stats.currentStreak, stats.totalPagesRead, allBadgesQuery.data, userBadgesQuery.data, allBadgesQuery.isLoading, userBadgesQuery.isLoading]);
 
-  useEffect(() => {
-    let subscription: any;
-    const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      subscription = supabase
-        .channel('user_badges_realtime')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'user_badges',
-          filter: `user_id=eq.${user.id}`,
-        }, () => {
-          console.log('Badge realtime update received');
-          queryClient.invalidateQueries({ queryKey: ['badges', 'getUserBadges'] });
-        })
-        .subscribe();
-    };
-    setupRealtime();
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [queryClient]);
 
   const mergedBadges = useMemo<MergedBadge[]>(() => {
     const allBadges = allBadgesQuery.data || [];

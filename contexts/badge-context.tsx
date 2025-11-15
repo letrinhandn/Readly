@@ -46,23 +46,31 @@ export const [BadgeProvider, useBadges] = createContextHook(() => {
 
   const checkAndAwardBadges = useCallback(async () => {
     console.log('[Badges] === Starting badge check ===');
+    console.log('[Badges] All badges loading:', allBadgesQuery.isLoading);
+    console.log('[Badges] User badges loading:', userBadgesQuery.isLoading);
+    console.log('[Badges] All badges error:', allBadgesQuery.error);
+    console.log('[Badges] User badges error:', userBadgesQuery.error);
     
     if (!allBadgesQuery.data || allBadgesQuery.data.length === 0) {
-      console.log('[Badges] No badge definitions available');
+      console.log('[Badges] No badge definitions available. Data:', allBadgesQuery.data);
+      console.log('[Badges] Fetching status:', { isLoading: allBadgesQuery.isLoading, isError: allBadgesQuery.isError });
       return;
     }
     
     if (!userBadgesQuery.data) {
-      console.log('[Badges] User badges not loaded');
+      console.log('[Badges] User badges not loaded. Data:', userBadgesQuery.data);
+      console.log('[Badges] Fetching status:', { isLoading: userBadgesQuery.isLoading, isError: userBadgesQuery.isError });
       return;
     }
     
     if (!stats || !books || !sessions) {
-      console.log('[Badges] Reading data not ready');
+      console.log('[Badges] Reading data not ready. Stats:', !!stats, 'Books:', !!books, 'Sessions:', !!sessions);
       return;
     }
     
     console.log('[Badges] Data ready - Sessions:', sessions.length, 'Books:', books.length, 'User badges:', userBadgesQuery.data.length);
+    console.log('[Badges] Available badge definitions:', allBadgesQuery.data.length);
+    console.log('[Badges] Badge categories:', allBadgesQuery.data.map(b => b.category));
     
     const completedSessions = sessions.filter(s => s.endTime);
     console.log('[Badges] Completed sessions:', completedSessions.length);

@@ -9,7 +9,7 @@ export const createBadgeDefinitionRoute = protectedProcedure
       description: z.string(),
       rarity: z.enum(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'godtier']),
       iconUrl: z.string(),
-      category: z.enum(['time', 'books', 'genre', 'author', 'streak', 'pages', 'special']),
+      category: z.string(),
       criteria: z.any().optional(),
     })
   )

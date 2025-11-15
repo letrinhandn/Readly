@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, Alert, TextInput, Modal, ActivityIndicator, Keyboard, Pressable } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X } from 'lucide-react-native';
+import { User, BookOpen, Award, Target, Settings, Bell, HelpCircle, LogOut, Sun, Moon, Smartphone, Camera, Edit, Share2, X, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useReading } from '@/contexts/reading-context';
@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const { stats, books } = useReading();
   const { colors, scheme, setTheme, isDark } = useTheme();
   const { profile, updateProfile, isLoading: isProfileLoading } = useUser();
-  const { topBadges, isLoading: isBadgesLoading } = useBadges();
+  const { topBadges, totalEarned, availableBadges, isLoading: isBadgesLoading } = useBadges();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -165,15 +165,32 @@ export default function ProfileScreen() {
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{profile?.bio || 'Keep up the great reading habit!'}</Text>
           
           {!isBadgesLoading && topBadges.length > 0 && (
-            <View style={styles.badgesContainer}>
-              {topBadges.map((userBadge) => (
-                userBadge.badge && (
-                  <View key={userBadge.id} style={styles.badgeItem}>
-                    <Badge badge={userBadge.badge} size="small" />
-                  </View>
-                )
-              ))}
-            </View>
+            <TouchableOpacity 
+              style={styles.badgesSection}
+              onPress={() => {
+                router.push('/badges');
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.badgesHeader}>
+                <Text style={[styles.badgesTitle, { color: colors.text }]}>
+                  {totalEarned} Badge{totalEarned !== 1 ? 's' : ''}
+                </Text>
+                <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2.5} />
+              </View>
+              <View style={styles.badgesContainer}>
+                {topBadges.map((userBadge) => (
+                  userBadge.badge && (
+                    <View key={userBadge.id} style={styles.badgeItem}>
+                      <Badge badge={userBadge.badge} size="small" earned={true} />
+                    </View>
+                  )
+                ))}
+              </View>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -724,11 +741,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
   },
+  badgesSection: {
+    marginTop: 20,
+    width: '100%',
+  },
+  badgesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  badgesTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   badgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
     gap: 12,
     flexWrap: 'wrap',
   },

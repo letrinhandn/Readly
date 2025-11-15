@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '@/constants/colors';
 import { useReading } from '@/contexts/reading-context';
+import { useBadges } from '@/contexts/badge-context';
 import ShareDailyCard from '@/components/ShareDailyCard';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -30,6 +31,7 @@ Notifications.setNotificationHandler({
 export default function FocusSessionScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
   const { books, stats, startReadingSession, endReadingSession } = useReading();
+  const { checkAndAwardBadges } = useBadges();
   const insets = useSafeAreaInsets();
 
   const book = books.find(b => b.id === bookId);
@@ -408,7 +410,11 @@ export default function FocusSessionScreen() {
     });
     setShowShareModal(true);
     setShowCompleteForm(false);
-  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification]);
+
+    setTimeout(() => {
+      checkAndAwardBadges();
+    }, 500);
+  }, [sessionId, pagesRead, seconds, reflectionText, endReadingSession, book, cancelTimerNotification, checkAndAwardBadges]);
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);

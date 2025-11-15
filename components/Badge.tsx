@@ -7,19 +7,22 @@ interface BadgeProps {
   badge: BadgeDefinition;
   size?: 'small' | 'medium' | 'large';
   showName?: boolean;
+  earned?: boolean;
 }
 
 const BADGE_SIZES = {
-  small: 40,
-  medium: 60,
-  large: 80,
+  small: 50,
+  medium: 80,
+  large: 100,
 };
 
-export default function Badge({ badge, size = 'small', showName = false }: BadgeProps) {
+export default function Badge({ badge, size = 'small', showName = false, earned = true }: BadgeProps) {
   const badgeSize = BADGE_SIZES[size];
   const rarityColors = BADGE_RARITY_COLORS[badge.rarity];
   
   const renderBadgeContent = () => {
+    const imageStyle = earned ? styles.badgeIcon : [styles.badgeIcon, styles.lockedImage];
+
     if (badge.rarity === 'mythic') {
       return (
         <LinearGradient
@@ -32,12 +35,17 @@ export default function Badge({ badge, size = 'small', showName = false }: Badge
               width: badgeSize,
               height: badgeSize,
               borderRadius: badgeSize / 2,
+              opacity: earned ? 1 : 0.4,
             },
           ]}
         >
           <View style={[styles.innerCircle, { borderColor: rarityColors.border }]}>
             {badge.iconUrl ? (
-              <Image source={{ uri: badge.iconUrl }} style={styles.badgeIcon} resizeMode="cover" />
+              <Image 
+                source={{ uri: badge.iconUrl }} 
+                style={imageStyle} 
+                resizeMode="cover" 
+              />
             ) : (
               <View style={styles.emptyIcon} />
             )}
@@ -58,12 +66,17 @@ export default function Badge({ badge, size = 'small', showName = false }: Badge
               width: badgeSize,
               height: badgeSize,
               borderRadius: badgeSize / 2,
+              opacity: earned ? 1 : 0.4,
             },
           ]}
         >
           <View style={[styles.innerCircle, { borderColor: rarityColors.border, borderWidth: 2.5 }]}>
             {badge.iconUrl ? (
-              <Image source={{ uri: badge.iconUrl }} style={styles.badgeIcon} resizeMode="cover" />
+              <Image 
+                source={{ uri: badge.iconUrl }} 
+                style={imageStyle} 
+                resizeMode="cover" 
+              />
             ) : (
               <View style={styles.emptyIcon} />
             )}
@@ -82,12 +95,17 @@ export default function Badge({ badge, size = 'small', showName = false }: Badge
             borderRadius: badgeSize / 2,
             backgroundColor: rarityColors.background,
             borderColor: rarityColors.border,
+            opacity: earned ? 1 : 0.4,
           },
         ]}
       >
         <View style={[styles.innerCircle, { borderColor: rarityColors.border }]}>
           {badge.iconUrl ? (
-            <Image source={{ uri: badge.iconUrl }} style={styles.badgeIcon} resizeMode="cover" />
+            <Image 
+              source={{ uri: badge.iconUrl }} 
+              style={imageStyle} 
+              resizeMode="cover" 
+            />
           ) : (
             <View style={styles.emptyIcon} />
           )}
@@ -158,6 +176,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  lockedImage: Platform.select({
+    web: {
+      filter: 'grayscale(100%)' as any,
+    } as any,
+    default: {},
+  }) as any,
   emptyIcon: {
     width: '60%',
     height: '60%',
